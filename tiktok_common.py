@@ -15,7 +15,7 @@ import os
 import sys
 from argparse import ArgumentParser
 
-def version_string():
+def version_string(): # pragma: no cover
 	"""Returns the current version of the software.
 	
 	Returns
@@ -24,7 +24,7 @@ def version_string():
 		Version string that can be used with `argparse`.
 	"""
 	
-	return "%(prog)s 1.0"
+	return "tiktok-dl 1.0"
 
 def check_python_version():
 	"""Checks the version of Python currently running.
