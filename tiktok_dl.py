@@ -138,9 +138,6 @@ import sys
 import tiktok_common as common
 
 if __name__ == "__main__":
-	# Python version checking.
-	if sys.version_info < (3,6):
-		print("Please use Python 3.6+!")
-		sys.exit()
+	common.check_python_version()
 	
 	common.print_pages(common.create_pages(__doc__))

@@ -2,11 +2,26 @@
 
 Exports
 -------
+	* check_python_version - Shuts down if the installed Python is old.
+	* comfortable_terminal_height - The "effective" height of the
+		terminal.
 	* create_pages - Divides a chunk of text into pages.
 	* print_pages - Prints strings to standard output as pages.
 """
 
 import os
+
+def check_python_version():
+	"""Checks the version of Python currently running.
+	
+	If the version of Python is below the minimum supported version, a
+	message will be printed and the program will close. Otherwise,
+	nothing happens.
+	"""
+	
+	if sys.version_info < (3,6):
+		print("Please use Python 3.6+!")
+		sys.exit()
 
 def comfortable_terminal_height():
 	"""Calculates the optimal size of a page for the current terminal.
