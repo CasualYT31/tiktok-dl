@@ -2,7 +2,9 @@
 
 Exports
 -------
+	* version_string - Returns the current version of the software.
 	* check_python_version - Shuts down if the installed Python is old.
+	* check_and_parse_arguments - Parses command-line arguments.
 	* comfortable_terminal_height - The "effective" height of the
 		terminal.
 	* create_pages - Divides a chunk of text into pages.
@@ -10,18 +12,55 @@ Exports
 """
 
 import os
+import sys
+from argparse import ArgumentParser
+
+def version_string():
+	"""Returns the current version of the software.
+	
+	Returns
+	-------
+	str
+		Version string that can be used with `argparse`.
+	"""
+	
+	return "%(prog)s 1.0"
 
 def check_python_version():
 	"""Checks the version of Python currently running.
 	
 	If the version of Python is below the minimum supported version, a
-	message will be printed and the program will close. Otherwise,
+	message will be printed and the program will exit. Otherwise,
 	nothing happens.
 	"""
 	
 	if sys.version_info < (3,6):
 		print("Please use Python 3.6+!")
-		sys.exit()
+		sys.exit(1)
+
+def check_and_parse_arguments(parser):
+	"""Checks to see if any command-line arguments were given.
+	
+	If no command-line arguments were given, the `ArgumentParser` help
+	string will be printed to `stderr` and the program will exit.
+	
+	Parameters
+	----------
+	argparse.ArgumentParser
+		The argument parser to use with this function call.
+	
+	Returns
+	-------
+	argparse.Namespace
+		In the case that command-line arguments were provided, they will
+		be parsed and the resulting `Namespace` object will be returned.
+	"""
+	
+	if len(sys.argv) == 1:
+		parser.print_help(sys.stderr)
+		sys.exit(1)
+	else:
+		return parser.parse_args()
 
 def comfortable_terminal_height():
 	"""Calculates the optimal size of a page for the current terminal.
@@ -36,7 +75,7 @@ def comfortable_terminal_height():
 	
 	return os.get_terminal_size().lines - 3
 
-def create_pages(lines, lines_per_page = 0):
+def create_pages(lines, lines_per_page=0):
 	"""Divides a large string spanning multiple lines into pages.
 	
 	Parameters
