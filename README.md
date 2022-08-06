@@ -1,6 +1,9 @@
 # tiktok-dl
 Command line utility to download TikTok videos and sort them by user.
 
+# Notice
+I am currently in the process of rewriting the code for this project to make it more suitable for an open source project that can be used by others besides myself. I will be working in a `dev` branch until I can get a stable first version up and running that supports all the features that I have implemented in my private project.
+
 # Installation Guide
 1. Download this repository. The easiest way to do this as a user is to click on the Code button above, and then click on Download ZIP (or follow [this link](https://github.com/CasualYT31/tiktok-dl/archive/refs/heads/main.zip)). Extract the ZIP.
 2. In order to use this program, you'll have to install Python 3.6+. Make sure to include the package manager `pip` in the installation.
