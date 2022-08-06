@@ -18,3 +18,6 @@ It should be noted that `tiktok_dl.py` and `ts.bat` both accept command line arg
 The manuals for both Python scripts can be found in separate markdown files `TIKTOK_DL.md` and `TIKTOK_CONFIG.md`.
 
 # Examples
+
+# Feature Requests
+If you would like to request a feature, feel free to make an issue on this repository. I will implement them at my own discretion.
