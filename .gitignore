@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# TikTok-DL specific ignores
+*.mp4
+*.txt
+*.json
+*.part
