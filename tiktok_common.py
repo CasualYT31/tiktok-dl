@@ -34,7 +34,7 @@ def check_python_version():
 	nothing happens.
 	"""
 	
-	if sys.version_info < (3,6):
+	if sys.version_info.major < 3 or sys.version_info.minor < 6:
 		print("Please use Python 3.6+!")
 		sys.exit(1)
 

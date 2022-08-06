@@ -13,7 +13,38 @@ import unittest
 from unittest.mock import patch
 import io
 import os
+import sys
 import tiktok_common as t
+
+class CheckPythonVersionTestCase(unittest.TestCase):
+	@patch("sys.stdout", new_callable=io.StringIO)
+	def test_bad_version(self, mock_print):
+		with patch.object(sys, "version_info") as v_info:
+			v_info.major = 3
+			v_info.minor = 5
+			with self.assertRaises(SystemExit):
+				t.check_python_version()
+			v_info.major = 2
+			v_info.minor = 0
+			with self.assertRaises(SystemExit):
+				t.check_python_version()
+			self.assertEqual(mock_print.getvalue(), \
+				"Please use Python 3.6+!\nPlease use Python 3.6+!\n")
+	
+	def test_good_version(self):
+		with patch.object(sys, 'version_info') as v_info:
+			v_info.major = 3
+			v_info.minor = 6
+			try:
+				t.check_python_version()
+			except SystemExit:
+				self.fail("check_python_version() called sys.exit()!")
+			v_info.major = 3
+			v_info.minor = 10
+			try:
+				t.check_python_version()
+			except SystemExit:
+				self.fail("check_python_version() called sys.exit()!")
 
 class CreatePagesTestCase(unittest.TestCase):
 	"""Also tests tiktok_common.comfortable_terminal_height()"""
