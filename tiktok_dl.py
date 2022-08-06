@@ -16,6 +16,9 @@ Terminology
 -----------
 It is important to define what we mean by "user", "username", "link",
 etc.
+Date
+	Dates for yt-dlp take the format YYYYMMDD, so tiktok-dl uses this
+	format, too.
 Link
 	Will always refer to a link to a single video when this term is used
 	within `tiktok_` scripts. Links can have the form
@@ -59,11 +62,11 @@ not, 2, etc.
 	page the links to all of their videos, and feed them in as input.
 	**IMPORTANT: see User Page Scraping section for more information.**
 
-Command-Line Arguments
-----------------------
+Command-Line Options
+--------------------
 -h
 	Prints the module's docstring.
--d YYYYMMDD
+-d date
 	Ensures that no video uploaded before the given date is downloaded.
 	If multiple `-d` parameters are specified, the last one provided
 	will be used.
