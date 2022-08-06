@@ -14,6 +14,7 @@ from unittest.mock import patch
 import io
 import os
 import sys
+from argparse import ArgumentParser
 import tiktok_common as t
 
 class CheckPythonVersionTestCase(unittest.TestCase):
@@ -45,6 +46,28 @@ class CheckPythonVersionTestCase(unittest.TestCase):
 				t.check_python_version()
 			except SystemExit:
 				self.fail("check_python_version() called sys.exit()!")
+
+class CheckAndParseArgumentsTestCase(unittest.TestCase):
+	def setUp(self):
+		"""Creates a simple argparse.ArgumentParser object."""
+		
+		self.parser = ArgumentParser()
+		self.parser.add_argument('dummy')
+	
+	@patch("sys.stderr", new_callable=io.StringIO)
+	def test_no_arguments(self, mock_print):
+		sys.argv = ['test']
+		with self.assertRaises(SystemExit):
+			t.check_and_parse_arguments(self.parser)
+		self.assertEqual(self.parser.format_help(), mock_print.getvalue())
+	
+	def test_arguments(self):
+		sys.argv = ['test', 'input']
+		try:
+			options = t.check_and_parse_arguments(self.parser)
+			self.assertEqual(options.dummy, "input")
+		except SystemExit:
+			self.fail("check_and_parse_arguments() called sys.exit()!")
 
 class CreatePagesTestCase(unittest.TestCase):
 	"""Also tests tiktok_common.comfortable_terminal_height()"""
