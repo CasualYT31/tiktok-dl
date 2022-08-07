@@ -68,12 +68,22 @@ Command-Line Options
 	Specifies the location of the configuration file to amend/query. If
 	more than one is given, then the last one given will be used. If one
 	is not specified, `./config.json` will be used.
+--interactive
+	Enters interactive mode. In this mode, the user will be prompted to
+	enter a link. This will then be either added to or removed from the
+	appropriate user's ignored links. Then, the prompts will loop
+	infinitely, until the user shuts down the program.
 
 Exports
 -------
 	* argument_parser - Constructs the tiktok-config argument parser.
 	* load_or_create_config - Attempts to load a given configuration
 		file.
+	* perform_sets - Perform set operations on a config object.
+	* perform_ignores - Add or remove links to/from a config object.
+	* perform_deletes - Delete users from a config object.
+	* list_users_with_config_objects - Lists users with a config object.
+	* list_user_objects - Lists user config objects.
 """
 
 import sys
@@ -241,7 +251,7 @@ def perform_ignores(config: dict, ignores: list[str], \
 		link = link.strip().lower()
 		if link.find('?') >= 0:
 			link = link[:link.find('?')]
-		if link[-1] == '/':
+		if link != "" and link[-1] == '/':
 			link = link[:-1]
 		if link.find('@') < 0 or link.find('/') < 0:
 			common.notice(f"Cannot extract username from link \"{link}\"; " \
@@ -411,7 +421,16 @@ if __name__ == "__main__":
 				print("")
 				[print(user_obj) for user_obj in config_objects_to_print]
 			
+			# Enter interactive mode.
 			if options.interactive:
-				pass
+				print("")
+				common.notice("Now entering interactive mode.")
+				print("Input links, one at a time, that are to be ignored.")
+				print("Each link will be saved as they are entered.")
+				print("Issue Ctrl+C to shutdown interactive mode.\n")
+				while True:
+					link = input("> ")
+					config = perform_ignores(config, [link])
+					common.save_config(options.config, config)
 	except KeyboardInterrupt:
-		print("Exiting...")
+		common.notice("Exiting...")
