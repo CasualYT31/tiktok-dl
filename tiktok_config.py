@@ -78,6 +78,7 @@ Exports
 import sys
 import os
 import io
+import copy
 import argparse
 from argparse import ArgumentParser
 import tiktok_common as common
@@ -148,6 +149,65 @@ def load_or_create_config(filepath: os.path, \
 			f"Will create new configuration script at \"{filepath}\".", stream)
 		return {}
 
+def perform_sets(config: dict, commands: list[tuple[str, str, str]], \
+	stream: io.TextIOBase = sys.stdout) -> dict:
+	"""Perform a bunch of set operations on a given config object.
+	
+	Parameters
+	----------
+	config - dict
+		The configuration object to change. Note that the original
+		object is not modified.
+	commands - list of tuple of str, str, str
+		The set operations to perform. The first string should contain
+		the name of the user to perform the operation on. The second
+		string should contain the property that is being amended. And
+		the third string should contain the new value.
+	stream - io.TextIOBase
+		The stream to write messages to. Can be `None`. Defaults to
+		`sys.stdout`.
+	
+	Returns
+	-------
+	dict
+		The new configuration object, which is always a deep copy of the
+		original.
+	"""
+	
+	result = copy.deepcopy(config)
+	for command in commands:
+		# Clean up the usernames and property names.
+		username = command[0].strip().lower()
+		property = command[1].strip().lower()
+		value = command[2]
+		# Skip command if the property name is invalid.
+		if property == "ignore":
+			common.notice("Cannot use --set with the \"ignore\" property, " \
+				f"use --ignore instead, in command: \"{command}\".", stream)
+		elif property != "notbefore" and property != "comment":
+			common.notice(f"Invalid property \"{property}\", in command: " \
+				f"\"{command}\".", stream)
+		else:
+			# If this is a new user, inform the user.
+			if username not in result:
+				common.notice("Creating new configuration object for user " \
+					f"\"{username}\".", stream)
+				result[username] = {}
+			# Perform set operation.
+			if value == "":
+				if property in result[username]:
+					common.notice(f"Deleting property \"{property}\" from " \
+						f"user \"{username}\".")
+					result[username].pop(property, None)
+			else:
+				is_it_new = " "
+				if property not in result[username]:
+					is_it_new = " new "
+				common.notice(f"Setting{is_it_new}property \"{property}\" " \
+					f"to \"{value}\" for user \"{username}\".", stream)
+				result[username][property] = value
+	return result
+
 if __name__ == "__main__":
 	common.check_python_version()
 	options = common.check_and_parse_arguments(argument_parser())
@@ -156,4 +216,6 @@ if __name__ == "__main__":
 		common.print_pages(common.create_pages(__doc__))
 	else:
 		config = load_or_create_config(options.config)
-		
+		new_config = perform_sets(config, options.set)
+		print(config)
+		print(new_config)
