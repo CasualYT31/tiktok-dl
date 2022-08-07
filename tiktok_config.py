@@ -62,6 +62,10 @@ Command-Line Options
 	must fully match with a username before it can be displayed. Only
 	the filter provided last will be used, if multiple `--list` options
 	are given.
+--config filepath
+	Specifies the location of the configuration file to amend/query. If
+	more than one is given, then the last one given will be used. If one
+	is not specified, `./config.json` will be used.
 
 Exports
 -------
