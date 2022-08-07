@@ -101,6 +101,7 @@ def argument_parser():
 		metavar='FILTER')
 	parser.add_argument('-c', '--config', default='./config.json', \
 		metavar='FILEPATH')
+	parser.add_argument('--interactive', action='store_true')
 	parser.add_argument('user', nargs='*', metavar='USERNAME')
 	return parser
 

@@ -82,6 +82,16 @@ class ArgumentParserTestCase(unittest.TestCase):
 		options = self.parser.parse_args(['-c', 'path.json', '--config', '2'])
 		self.assertEqual(options.config, "2")
 	
+	def test_interactive(self):
+		options = self.parser.parse_args([''])
+		self.assertFalse(options.interactive)
+		options = self.parser.parse_args(['--interactive'])
+		self.assertTrue(options.interactive)
+		options = self.parser.parse_args(['--in'])
+		self.assertTrue(options.interactive)
+		with self.assertRaises(SystemExit):
+			self.parser.parse_args(['--i'])
+	
 	def test_positional(self):
 		options = self.parser.parse_args(['user1', 'user2', '--list', 'p'])
 		self.assertEqual(len(options.user), 2)
