@@ -49,7 +49,8 @@ Command-Line Options
 --set username property value
 	Updates the given user's `property` property with the given value.
 	A user's configuration object will be created if it doesn't exist
-	already.
+	already. This will not change any `ignore` property. You can remove
+	a property by setting a blank string with `""`.
 --ignore link
 	Adds the given link to the appropriate user's ignore property; if it
 	isn't already ignored. If it is ignored, it is removed from the
