@@ -208,6 +208,61 @@ def perform_sets(config: dict, commands: list[tuple[str, str, str]], \
 				result[username][property] = value
 	return result
 
+def perform_ignores(config: dict, ignores: list[str], \
+	stream: io.TextIOBase = sys.stdout) -> dict:
+	"""Add and/or remove ignore links from a given config object.
+	
+	Parameters
+	----------
+	config - dict
+		The configuration object to change. Note that the original
+		object is not modified.
+	ignores - list of str
+		The links to ignore. If the link is already present, then remove
+		it from its ignore property.
+	stream - io.TextIOBase
+		The stream to write messages to. Can be `None`. Defaults to
+		`sys.stdout`.
+	
+	Returns
+	-------
+	dict
+		The new configuration object, which is always a deep copy of the
+		original.
+	"""
+	
+	result = copy.deepcopy(config)
+	for link in ignores:
+		# Clean up the link and extract the username.
+		# If the username cannot be extracted, it's an invalid link.
+		link = link.strip().lower()
+		if link.find('?') >= 0:
+			link = link[:link.find('?')]
+		if link[-1] == '/':
+			link = link[:-1]
+		if link.find('@') < 0 or link.find('/') < 0:
+			common.notice(f"Cannot extract username from link \"{link}\"; " \
+				"the link is invalid.", stream)
+		else:
+			username = link[link.find('@') + 1:]
+			username = username[:username.find('/')]
+			# If this is a new user, inform the user.
+			if username not in result:
+				common.notice("Creating new configuration object for user " \
+					f"\"{username}\".", stream)
+				result[username] = {}
+			if "ignore" not in result[username]:
+				result[username]["ignore"] = []
+			if link in result[username]["ignore"]:
+				common.notice(f"Removing link \"{link}\" from user "
+					f"\"{username}\"'s ignored links.", stream)
+				result[username]["ignore"].remove(link)
+			else:
+				common.notice(f"Adding link \"{link}\" to user "
+					f"\"{username}\"'s ignored links.", stream)
+				result[username]["ignore"].append(link)
+	return result
+
 if __name__ == "__main__":
 	common.check_python_version()
 	options = common.check_and_parse_arguments(argument_parser())
@@ -217,5 +272,6 @@ if __name__ == "__main__":
 	else:
 		config = load_or_create_config(options.config)
 		new_config = perform_sets(config, options.set)
+		new_config = perform_ignores(new_config, options.ignore)
 		print(config)
 		print(new_config)
