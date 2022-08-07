@@ -423,7 +423,8 @@ if __name__ == "__main__":
 			
 			# Enter interactive mode.
 			if options.interactive:
-				print("")
+				if len(username_list) > 0 or len(config_objects_to_print) > 0:
+					print("")
 				common.notice("Now entering interactive mode.")
 				print("Input links, one at a time, that are to be ignored.")
 				print("Each link will be saved as they are entered.")
