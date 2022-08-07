@@ -75,9 +75,10 @@ Exports
 
 import sys
 import argparse
+from argparse import ArgumentParser
 import tiktok_common as common
 
-def argument_parser():
+def argument_parser() -> ArgumentParser:
 	"""Generates an argument parser for tiktok-config.
 	
 	Returns

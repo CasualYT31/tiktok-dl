@@ -14,8 +14,9 @@ Exports
 import os
 import sys
 from argparse import ArgumentParser
+from argparse import Namespace
 
-def version_string(): # pragma: no cover
+def version_string() -> str: # pragma: no cover
 	"""Returns the current version of the software.
 	
 	Returns
@@ -26,7 +27,7 @@ def version_string(): # pragma: no cover
 	
 	return "tiktok-dl 1.0"
 
-def check_python_version():
+def check_python_version() -> None:
 	"""Checks the version of Python currently running.
 	
 	If the version of Python is below the minimum supported version, a
@@ -38,7 +39,7 @@ def check_python_version():
 		print("Please use Python 3.6+!")
 		sys.exit(1)
 
-def check_and_parse_arguments(parser):
+def check_and_parse_arguments(parser: ArgumentParser) -> Namespace:
 	"""Checks to see if any command-line arguments were given.
 	
 	If no command-line arguments were given, the `ArgumentParser` help
@@ -62,7 +63,7 @@ def check_and_parse_arguments(parser):
 	else:
 		return parser.parse_args()
 
-def comfortable_terminal_height():
+def comfortable_terminal_height() -> int:
 	"""Calculates the optimal size of a page for the current terminal.
 	
 	Returns
@@ -75,7 +76,7 @@ def comfortable_terminal_height():
 	
 	return os.get_terminal_size().lines - 3
 
-def create_pages(lines, lines_per_page=0):
+def create_pages(lines: str, lines_per_page: int = 0) -> list[str]:
 	"""Divides a large string spanning multiple lines into pages.
 	
 	Parameters
@@ -92,7 +93,7 @@ def create_pages(lines, lines_per_page=0):
 	
 	Returns
 	-------
-	list
+	list of str
 		A list of pages.
 	"""
 	
@@ -112,7 +113,7 @@ def create_pages(lines, lines_per_page=0):
 			pages[-1] += "\n"
 	return pages
 
-def print_pages(pages):
+def print_pages(pages: list[str]):
 	"""Prints a list of strings to the console as a set of pages.
 	
 	Parameters
