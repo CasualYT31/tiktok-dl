@@ -70,6 +70,18 @@ class ArgumentParserTestCase(unittest.TestCase):
 			['-l', 'a?b*c+.', '-l', '--list', '?'])
 		self.assertEqual(options.list, '?')
 	
+	def test_config(self):
+		options = self.parser.parse_args([''])
+		self.assertEqual(options.config, "./config.json")
+		with self.assertRaises(SystemExit):
+			self.parser.parse_args(['-c'])
+		options = self.parser.parse_args(['-c', 'path.json'])
+		self.assertEqual(options.config, "path.json")
+		with self.assertRaises(SystemExit):
+			self.parser.parse_args(['--config', 'path.json', '-c'])
+		options = self.parser.parse_args(['-c', 'path.json', '--config', '2'])
+		self.assertEqual(options.config, "2")
+	
 	def test_positional(self):
 		options = self.parser.parse_args(['user1', 'user2', '--list', 'p'])
 		self.assertEqual(len(options.user), 2)

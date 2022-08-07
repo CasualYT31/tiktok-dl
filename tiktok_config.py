@@ -94,6 +94,8 @@ def argument_parser():
 		metavar='USERNAME')
 	parser.add_argument('-l', '--list', nargs='?', const='.*', \
 		metavar='FILTER')
+	parser.add_argument('-c', '--config', default='./config.json', \
+		metavar='FILEPATH')
 	parser.add_argument('user', nargs='*', metavar='USERNAME')
 	return parser
 
