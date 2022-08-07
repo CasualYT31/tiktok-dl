@@ -74,6 +74,8 @@ Exports
 """
 
 import sys
+import os
+import io
 import argparse
 from argparse import ArgumentParser
 import tiktok_common as common
@@ -106,6 +108,44 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('user', nargs='*', metavar='USERNAME')
 	return parser
 
+def load_or_create_config(filepath: os.path, \
+	stream: io.TextIOBase = sys.stdout) -> dict:
+	"""Loads a given UTF-8 configuration file and returns it, if it
+	exists.
+	
+	This function attempts to load the configuration file. If it exists,
+	it will be parsed and returned. If it doesn't exist, a message will
+	be printed to the given text stream informing the user that a new
+	configuration file will be created, and a blank configuration object
+	is returned.
+	
+	Parameters
+	----------
+	filepath : os.path
+		The path leading to the configuration file.
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	
+	Returns
+	-------
+	dict
+		The root JSON object containing all of the user objects.
+	
+	Raises
+	------
+	Any exception that can be raised by `open()` or `json.load()`,
+	except `FileNotFoundError`, which is caught and handled as described
+	above.
+	"""
+	
+	try:
+		return common.load_config(filepath)
+	except FileNotFoundError:
+		common.notice( \
+			f"Will create new configuration script at \"{filepath}\".", stream)
+		return {}
+
 if __name__ == "__main__":
 	common.check_python_version()
 	options = common.check_and_parse_arguments(argument_parser())
@@ -113,4 +153,4 @@ if __name__ == "__main__":
 	if options.help:
 		common.print_pages(common.create_pages(__doc__))
 	else:
-		pass
+		config = load_or_create_config(options.config)

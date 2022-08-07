@@ -18,19 +18,20 @@ from argparse import ArgumentParser
 import tiktok_common as t
 
 class CheckPythonVersionTestCase(unittest.TestCase):
-	@patch("sys.stdout", new_callable=io.StringIO)
+	@patch("sys.stderr", new_callable=io.StringIO)
 	def test_bad_version(self, mock_print):
 		with patch.object(sys, "version_info") as v_info:
 			v_info.major = 3
 			v_info.minor = 5
 			with self.assertRaises(SystemExit):
-				t.check_python_version()
+				t.check_python_version(mock_print)
 			v_info.major = 2
 			v_info.minor = 0
 			with self.assertRaises(SystemExit):
-				t.check_python_version()
+				t.check_python_version(mock_print)
 			self.assertEqual(mock_print.getvalue(), \
-				"Please use Python 3.6+!\nPlease use Python 3.6+!\n")
+				"[TIKTOK-DL] Please use Python 3.6+!\n"
+				"[TIKTOK-DL] Please use Python 3.6+!\n")
 	
 	def test_good_version(self):
 		with patch.object(sys, 'version_info') as v_info:
@@ -58,7 +59,7 @@ class CheckAndParseArgumentsTestCase(unittest.TestCase):
 	def test_no_arguments(self, mock_print):
 		sys.argv = ['test']
 		with self.assertRaises(SystemExit):
-			t.check_and_parse_arguments(self.parser)
+			t.check_and_parse_arguments(self.parser, mock_print)
 		self.assertEqual(self.parser.format_help(), mock_print.getvalue())
 	
 	def test_arguments(self):
