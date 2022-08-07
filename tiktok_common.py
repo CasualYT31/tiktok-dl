@@ -17,6 +17,7 @@ Exports
 import os
 import sys
 import io
+import json
 from argparse import ArgumentParser
 from argparse import Namespace
 
@@ -205,3 +206,22 @@ def load_config(filepath: os.path) -> dict:
 	
 	with open(filepath, encoding="UTF-8") as script:
 		return json.load(script)
+
+def save_config(filepath: os.path, config: dict) -> None:
+	"""Saves a given UTF-8 configuration file.
+	
+	Parameters
+	----------
+	filepath : os.path
+		The path leading to the file to overwrite with the configuration
+		object. Will create the file if it doesn't exist already.
+	config : dict
+		The configuration object to save.
+	
+	Raises
+	------
+	Any exception that can be raised by `open()` or `json.dump()`.
+	"""
+	
+	with open(filepath, mode="w", encoding="UTF-8") as script:
+		json.dump(config, script)

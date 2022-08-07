@@ -10,6 +10,7 @@ files.
 
 This script requires the following modules in order to run:
 - `argparse`
+- `columnify`
 
 The idea behind the configuration script is to ensure that the same set
 of rules are followed when downloading from any given user's page. For
@@ -79,8 +80,10 @@ import sys
 import os
 import io
 import copy
+import re
 import argparse
 from argparse import ArgumentParser
+from columnify import columnify
 import tiktok_common as common
 
 def argument_parser() -> ArgumentParser:
@@ -263,15 +266,152 @@ def perform_ignores(config: dict, ignores: list[str], \
 				result[username]["ignore"].append(link)
 	return result
 
-if __name__ == "__main__":
-	common.check_python_version()
-	options = common.check_and_parse_arguments(argument_parser())
+def perform_deletes(config: dict, usernames: list[str], \
+	stream: io.TextIOBase = sys.stdout) -> dict:
+	"""Delete user objects from a given config object.
 	
-	if options.help:
-		common.print_pages(common.create_pages(__doc__))
-	else:
-		config = load_or_create_config(options.config)
-		new_config = perform_sets(config, options.set)
-		new_config = perform_ignores(new_config, options.ignore)
-		print(config)
-		print(new_config)
+	Parameters
+	----------
+	config - dict
+		The configuration object to change. Note that the original
+		object is not modified.
+	usernames - list of str
+		The users to delete.
+	stream - io.TextIOBase
+		The stream to write messages to. Can be `None`. Defaults to
+		`sys.stdout`.
+	
+	Returns
+	-------
+	dict
+		The new configuration object, which is always a deep copy of the
+		original.
+	"""
+	
+	result = copy.deepcopy(config)
+	for username in usernames:
+		# Clean up the username.
+		username = username.strip().lower()
+		# Delete the user if they exist.
+		if username in result:
+			common.notice(f"Deleting user \"{username}\"'s configuration " \
+				"object", stream)
+			result.pop(username, None)
+		else:
+			common.notice(f"Cannot delete user \"{username}\"; user does " \
+				"not exist.", stream)
+	return result
+
+def list_users_with_config_objects(config: dict, filter_re: str = ".*", \
+	stream: io.TextIOBase = sys.stdout) -> list[str]:
+	"""List users who have a config object in a given config object.
+	
+	Parameters
+	----------
+	config - dict
+		The configuration object to read from.
+	filter - list of str
+		The regular expression to filter the usernames with. The
+		username must fully match to be included.  Defaults to listing
+		all of the users who have objects.
+	stream - io.TextIOBase
+		The stream to write messages to. Can be `None`. Defaults to
+		`sys.stdout`.
+	
+	Returns
+	-------
+	list of str
+		The names of users who have a config object.
+	"""
+	
+	try:
+		reg = re.compile(filter_re)
+	except re.error:
+		common.notice("Invalid regular expression given for --list's " \
+			f"filter: {filter_re}", stream)
+		return []
+	result = list(filter(reg.fullmatch, list(config.keys())))
+	result.sort()
+	return result
+
+def list_user_objects(config: dict, users: list[str], \
+	stream: io.TextIOBase = sys.stdout) -> list[str]:
+	"""List the contents of user objects from a given config object.
+	
+	Parameters
+	----------
+	config - dict
+		The configuration object to read from.
+	users - list of str
+		The users whose objects are to be listed.
+	stream - io.TextIOBase
+		The stream to write messages to. Can be `None`. Defaults to
+		`sys.stdout`.
+	
+	Returns
+	-------
+	list of str
+		The printable string representations of each user's config
+		object, in the order that the users were originally given in.
+	"""
+	
+	result = []
+	for i, user in enumerate(users):
+		if user in config:
+			result.append(f"~~~{user}~~~\n")
+			if "date" in config[user]:
+				result[-1] += "No videos from before: " \
+					f"{config[user]['date']}.\n"
+			if "comment" in config[user]:
+				result[-1] += f"Comment: {config[user]['comment']}\n"
+			if "ignore" in config[user]:
+				result[-1] += f"Ignoring {len(config[user]['ignore'])} " \
+					"links.\n"
+			if result[-1] == f"~~~{user}~~~\n":
+				result[-1] += "Empty.\n"
+		else:
+			common.notice(f"User \"{user}\" does not exist; cannot list its " \
+				"configuration object.", stream)
+	result.sort()
+	# Remove last newline.
+	if len(result) > 0:
+		result[-1] = result[-1][:-1]
+	return result
+
+if __name__ == "__main__":
+	try:
+		common.check_python_version()
+		options = common.check_and_parse_arguments(argument_parser())
+		
+		if options.help:
+			common.print_pages(common.create_pages(__doc__))
+		else:
+			config = load_or_create_config(options.config)
+			if options.set is not None:
+				config = perform_sets(config, options.set)
+			if options.ignore is not None:
+				config = perform_ignores(config, options.ignore)
+			if options.delete is not None:
+				config = perform_deletes(config, options.delete)
+			# At this juncture, save the configuration.
+			common.save_config(options.config, config)
+			
+			# Now process query stuff.
+			if options.list is not None:
+				username_list = \
+					list_users_with_config_objects(config, options.list)
+			else:
+				username_list = []
+			config_objects_to_print = list_user_objects(config, options.user)
+			
+			if len(username_list) > 0:
+				print("")
+				print(columnify(username_list, os.get_terminal_size().columns))
+			if len(config_objects_to_print) > 0:
+				print("")
+				[print(user_obj) for user_obj in config_objects_to_print]
+			
+			if options.interactive:
+				pass
+	except KeyboardInterrupt:
+		print("Exiting...")
