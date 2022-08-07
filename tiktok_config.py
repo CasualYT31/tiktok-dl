@@ -102,3 +102,8 @@ def argument_parser():
 if __name__ == "__main__":
 	common.check_python_version()
 	options = common.check_and_parse_arguments(argument_parser())
+	
+	if options.help:
+		common.print_pages(common.create_pages(__doc__))
+	else:
+		pass
