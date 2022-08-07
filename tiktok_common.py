@@ -2,7 +2,8 @@
 
 Exports
 -------
-	* notice - Writes a message to the given text stream.
+	* write - Writes a message to a stream, if a stream is given.
+	* notice - Writes a `tiktok-dl` message to the given text stream.
 	* version_string - Returns the current version of the software.
 	* check_python_version - Shuts down if the installed Python is old.
 	* check_and_parse_arguments - Parses command-line arguments.

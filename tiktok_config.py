@@ -71,6 +71,8 @@ Command-Line Options
 Exports
 -------
 	* argument_parser - Constructs the tiktok-config argument parser.
+	* load_or_create_config - Attempts to load a given configuration
+		file.
 """
 
 import sys
@@ -154,3 +156,4 @@ if __name__ == "__main__":
 		common.print_pages(common.create_pages(__doc__))
 	else:
 		config = load_or_create_config(options.config)
+		
