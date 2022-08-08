@@ -4,7 +4,7 @@ Run tests on the tiktok-config module. Best to run this suite with `-b`.
 """
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, mock_open
 import io
 from argparse import ArgumentError
 import tiktok_config as t
@@ -97,6 +97,26 @@ class ArgumentParserTestCase(unittest.TestCase):
 		self.assertEqual(len(options.user), 2)
 		options = self.parser.parse_args(['--list', 'p'])
 		self.assertEqual(len(options.user), 0)
+
+class LoadOrCreateConfigTestCase(unittest.TestCase):
+	def test_non_existent_file(self):
+		str_stream = io.StringIO()
+		config = t.load_or_create_config("", str_stream)
+		self.assertEqual(config, {})
+		self.assertIn( \
+			"Will create new configuration script at \"\".", \
+			str_stream.getvalue())
+	
+	@patch("builtins.open", new_callable=mock_open, \
+		read_data='{"username": {"ignore": ["link", "link2"], "notbefore": '
+		'"20200505", "comment": "Hello"}}')
+	def test_with_valid_object(self, mock_file):
+		config = t.load_or_create_config("./config.json")
+		self.assertIn("username", config)
+		self.assertIn("ignore", config["username"])
+		self.assertIn("notbefore", config["username"])
+		self.assertIn("comment", config["username"])
+		self.assertEqual(2, len(config["username"]["ignore"]))
 
 if __name__ == "__main__":
 	unittest.main()

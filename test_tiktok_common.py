@@ -61,9 +61,8 @@ class CheckPythonVersionTestCase(unittest.TestCase):
 			v_info.minor = 0
 			with self.assertRaises(SystemExit):
 				t.check_python_version(mock_print)
-			self.assertEqual(mock_print.getvalue(), \
-				"[TIKTOK-DL] Please use Python 3.10+!\n"
-				"[TIKTOK-DL] Please use Python 3.10+!\n")
+			self.assertEqual( \
+				mock_print.getvalue().count("Please use Python 3.10+!\n"), 2)
 	
 	def test_good_version(self):
 		with patch.object(sys, 'version_info') as v_info:
