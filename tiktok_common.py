@@ -50,7 +50,7 @@ def notice(msg: str, stream: io.TextIOBase = sys.stdout) -> None:
 		The message to print.
 	stream : io.TextIOBase
 		The text stream to write the message to. Defaults to
-		`sys.stdout`.
+		`sys.stdout`. Can be `None`, see `write()`.
 	"""
 	
 	write(f"[TIKTOK-DL] {msg}", stream)

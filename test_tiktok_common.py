@@ -32,6 +32,21 @@ class WriteTestCase(unittest.TestCase):
 	def test_no_stream(self):
 		t.write("Hello", None)
 
+class NoticeTestCase(unittest.TestCase):
+	def setUp(self):
+		self.strstream = io.StringIO()
+	
+	def test_blank_string(self):
+		t.notice("", self.strstream)
+		self.assertEqual(self.strstream.getvalue(), "[TIKTOK-DL] \n")
+
+	def test_string(self):
+		t.notice("Hi", self.strstream)
+		self.assertEqual(self.strstream.getvalue(), "[TIKTOK-DL] Hi\n")
+
+	def test_no_stream(self):
+		t.notice("Hi", None)
+
 class CheckPythonVersionTestCase(unittest.TestCase):
 	@patch("sys.stderr", new_callable=io.StringIO)
 	def test_bad_version(self, mock_print):
@@ -214,6 +229,11 @@ class PrintPagesTestCase(unittest.TestCase):
 			"1\nPage 1 out of 5 (press enter to continue)...\n" \
 			"2\nPage 2 out of 5...\n3\nPage 3 out of 5...\n" \
 			"4\nPage 4 out of 5...\n5\nPage 5 out of 5...")
+
+class LoadConfigTestCase(unittest.TestCase):
+	def test_no_file(self):
+		with self.assertRaises(FileNotFoundError):
+			t.load_config("")
 
 if __name__ == "__main__":
 	unittest.main()
