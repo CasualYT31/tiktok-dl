@@ -54,7 +54,7 @@ class CheckPythonVersionTestCase(unittest.TestCase):
 	def test_bad_version(self, mock_print):
 		with patch.object(sys, "version_info") as v_info:
 			v_info.major = 3
-			v_info.minor = 5
+			v_info.minor = 9
 			with self.assertRaises(SystemExit):
 				t.check_python_version(mock_print)
 			v_info.major = 2
@@ -62,19 +62,19 @@ class CheckPythonVersionTestCase(unittest.TestCase):
 			with self.assertRaises(SystemExit):
 				t.check_python_version(mock_print)
 			self.assertEqual(mock_print.getvalue(), \
-				"[TIKTOK-DL] Please use Python 3.6+!\n"
-				"[TIKTOK-DL] Please use Python 3.6+!\n")
+				"[TIKTOK-DL] Please use Python 3.10+!\n"
+				"[TIKTOK-DL] Please use Python 3.10+!\n")
 	
 	def test_good_version(self):
 		with patch.object(sys, 'version_info') as v_info:
 			v_info.major = 3
-			v_info.minor = 6
+			v_info.minor = 10
 			try:
 				t.check_python_version()
 			except SystemExit:
 				self.fail("check_python_version() called sys.exit()!")
 			v_info.major = 3
-			v_info.minor = 10
+			v_info.minor = 11
 			try:
 				t.check_python_version()
 			except SystemExit:

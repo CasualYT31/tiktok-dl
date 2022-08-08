@@ -10,7 +10,7 @@ This script requires the following modules in order to run:
 - `yt-dlp`
 - `requests_html`
 - `numpy`
-It also requires at least Python 3.6.
+It also requires at least Python 3.10.
 
 Terminology
 -----------

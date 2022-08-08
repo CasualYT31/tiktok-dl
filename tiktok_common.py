@@ -1,5 +1,8 @@
 """Defines generic helper code useful for all tiktok-dl scripts.
 
+This script requires the following modules in order to run:
+- `argparse`
+
 Exports
 -------
 	* write - Writes a message to a stream, if a stream is given.
@@ -80,8 +83,8 @@ def check_python_version(stream: io.TextIOBase = sys.stderr) -> None:
 		message will be written. Defaults to `sys.stderr`.
 	"""
 	
-	if sys.version_info.major < 3 or sys.version_info.minor < 6:
-		notice("Please use Python 3.6+!", stream)
+	if sys.version_info.major < 3 or sys.version_info.minor < 10:
+		notice("Please use Python 3.10+!", stream)
 		sys.exit(1)
 
 def check_and_parse_arguments(parser: ArgumentParser, \
