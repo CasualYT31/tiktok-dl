@@ -17,6 +17,21 @@ import sys
 from argparse import ArgumentParser
 import tiktok_common as t
 
+class WriteTestCase(unittest.TestCase):
+	def setUp(self):
+		self.strstream = io.StringIO()
+	
+	def test_normal_use_case(self):
+		t.write("abcdefg", self.strstream)
+		self.assertEqual(self.strstream.getvalue(), "abcdefg\n")
+	
+	def test_end_parameter(self):
+		t.write("abcdefg", self.strstream, '\t j\n')
+		self.assertEqual(self.strstream.getvalue(), "abcdefg\t j\n")
+	
+	def test_no_stream(self):
+		t.write("Hello", None)
+
 class CheckPythonVersionTestCase(unittest.TestCase):
 	@patch("sys.stderr", new_callable=io.StringIO)
 	def test_bad_version(self, mock_print):

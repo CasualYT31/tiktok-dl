@@ -21,7 +21,7 @@ import json
 from argparse import ArgumentParser
 from argparse import Namespace
 
-def write(msg: str, end: str = '\n', stream: io.TextIOBase = sys.stdout) \
+def write(msg: str, stream: io.TextIOBase = sys.stdout, end: str = '\n') \
 	-> None:
 	"""Outputs to the given text stream.
 	
@@ -29,11 +29,11 @@ def write(msg: str, end: str = '\n', stream: io.TextIOBase = sys.stdout) \
 	----------
 	msg : str
 		The message to print.
-	end : str
-		The string to print at the end of `msg`. Defaults to '\n'.
 	stream : io.TextIOBase
 		The text stream to write the message to. Defaults to
 		`sys.stdout`. If `None` is given, no message will be written.
+	end : str
+		The string to print at the end of `msg`. Defaults to '\n'.
 	"""
 	
 	if stream is not None:
@@ -53,7 +53,7 @@ def notice(msg: str, stream: io.TextIOBase = sys.stdout) -> None:
 		`sys.stdout`.
 	"""
 	
-	write(f"[TIKTOK-DL] {msg}", stream=stream)
+	write(f"[TIKTOK-DL] {msg}", stream)
 
 def version_string() -> str: # pragma: no cover
 	"""Returns the current version of the software.
