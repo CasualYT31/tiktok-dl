@@ -118,5 +118,10 @@ class LoadOrCreateConfigTestCase(unittest.TestCase):
 		self.assertIn("comment", config["username"])
 		self.assertEqual(2, len(config["username"]["ignore"]))
 
+class PerformSetsTestCase(unittest.TestCase):
+	def setUp(self):
+		# Setup configuration object here.
+		pass
+
 if __name__ == "__main__":
 	unittest.main()

@@ -190,7 +190,7 @@ def perform_sets(config: dict, commands: list[tuple[str, str, str]], \
 	result = copy.deepcopy(config)
 	for command in commands:
 		# Clean up the usernames and property names.
-		username = command[0].strip().lower()
+		username = common.clean_up_username(command[0])
 		property = command[1].strip().lower()
 		value = command[2]
 		# Skip command if the property name is invalid.
@@ -301,7 +301,7 @@ def perform_deletes(config: dict, usernames: list[str], \
 	result = copy.deepcopy(config)
 	for username in usernames:
 		# Clean up the username.
-		username = username.strip().lower()
+		username = common.clean_up_username(username)
 		# Delete the user if they exist.
 		if username in result:
 			common.notice(f"Deleting user \"{username}\"'s configuration " \
@@ -366,7 +366,8 @@ def list_user_objects(config: dict, users: list[str], \
 	"""
 	
 	result = []
-	for i, user in enumerate(users):
+	for user in users:
+		user = common.clean_up_username(user)
 		if user in config:
 			result.append(f"~~~{user}~~~\n")
 			if "date" in config[user]:

@@ -15,6 +15,7 @@ Exports
 	* create_pages - Divides a chunk of text into pages.
 	* print_pages - Prints strings to standard output as pages.
 	* load_config - Loads a configuration file and returns it.
+	* clean_up_username - Cleans up a username, ready for processing.
 """
 
 import os
@@ -228,3 +229,19 @@ def save_config(filepath: os.path, config: dict) -> None:
 	
 	with open(filepath, mode="w", encoding="UTF-8") as script:
 		json.dump(config, script)
+
+def clean_up_username(username: str) -> str:
+	"""Cleans up a username, ready for processing.
+	
+	Parameters
+	----------
+	username : str
+		The username to clean up.
+	
+	Returns
+	-------
+	str
+		The cleaned up username.
+	"""
+
+	return username.strip().lower()
