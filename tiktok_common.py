@@ -330,3 +330,186 @@ def extract_username_from_link(link: str) -> str:
 		return username[:username.find('/')]
 	else:
 		raise ValueError()
+
+class user_config:
+	"""Holds the tiktok-dl configurations for a collection of TikTok
+	users.
+	
+	The benefit of using this class is that it will always clean up all
+	of the inputs (usernames, links, etc.), and will allow you to
+	interact with tiktok-dl configurations via a single interface,
+	without relying directly on the way the configurations are
+	formatted or stored. It will also perform all error handling for
+	you (though you should still catch any exceptions that are raised).
+	"""
+
+	def __init__(self):
+		"""Initialises the configuration with an empty root object."""
+
+		self.config = {}
+	
+	# Helper methods. Avoid calling these from outside of the class.
+
+	def __create_new_user(self, user: str) -> None:
+		"""Creates a new user object for this configuration.
+
+		Parameters
+		----------
+		user : str
+			The name of the user.
+		"""
+
+		user = clean_up_username(user)
+		self.config[user]["notbefore"] = ""
+		self.config[user]["ignore"] = []
+		self.config[user]["comment"] = ""
+	
+	def __set_property(self, user: str, property: str, value) -> bool:
+		"""Sets a property in a user's configuration object.
+		
+		Creates the user's configuration object if it didn't already
+		exist.
+
+		Parameters
+		----------
+		user : str
+			The name of the user.
+		property : str
+			The name of the property to update.
+		value
+			The value to set to the property.
+
+		Returns
+		-------
+		bool
+			`True` if the user object had to be created, `False` if the
+			user already existed.
+		"""
+
+		user = clean_up_username(user)
+		property = clean_up_property_name(property)
+		ret = user not in self.config
+		if ret:
+			self.__create_new_user(user)
+		self.config[user][property] = value
+		return ret
+	
+	def __get_property(self, user: str, property: str):
+		"""Gets a property from a user's configuration object.
+
+		Parameters
+		----------
+		user : str
+			The name of the user.
+		property : str
+			The name of the property to get.
+		value
+			The value to set to the property.
+
+		Returns
+		-------
+		The value stored in the property.
+
+		Raises
+		------
+		KeyError
+			If the given user did not have a configuration object.
+		ValueError
+			If the given property is not recognised by tiktok-dl.
+		"""
+
+		user = clean_up_username(user)
+		property = clean_up_property_name(property)
+		if user in self.config:
+			if property in self.config[user]:
+				return self.config[user][property]
+			else:
+				raise ValueError()
+		else:
+			raise KeyError()
+
+	# "Public" methods.
+
+	def get_not_before(self, user: str) -> str:
+		"""Get a user's "notbefore" property.
+
+		This property tells tiktok-dl not to download videos uploaded by
+		the given user and before the given date. By default, this
+		property is not present.
+
+		Parameters
+		----------
+		user : str
+			The user to get the "notbefore" property of.
+		
+		Returns
+		-------
+		str
+			The date in `YYYYMMDD` format if the property is set, or a
+			blank string if the property is not set.
+		
+		Raises
+		------
+		KeyError
+			If the given user does not have a configuration object.
+		"""
+		
+		return self.__get_property(user, "notbefore")
+	
+	def set_not_before(self, user: str, date: str) -> bool:
+		"""Set a user's "notbefore" property.
+
+		If the given user doesn't currently exist in the configuration,
+		a new user object will be created.
+		
+		Parameters
+		----------
+		user : str
+			The user to set the "notbefore" property of.
+		date : str
+			The date in `YYYYMMDD` format.
+		
+		Returns
+		-------
+		bool
+			`True` if a new user object was created, `False` if the user
+			already had a configuration object.
+		
+		Raises
+		------
+		ValueError
+			If the given date string was not in the correct format.
+		"""
+		
+		if not re.compile("\\d{7}").fullmatch(date):
+			raise ValueError()
+		return self.__set_property(user, "notbefore", date)
+
+	def toggle_ignore(link: str) -> bool:
+		"""Either adds or removes a link from the correct ignore list.
+		
+		Each user can have a list of links that are to be ignored when
+		downloading. The user is extracted from the link, and that
+		user's ignore list is changed.
+		
+		If the link is present within the user's ignore list, it is
+		removed. If the link wasn't present, it is added.
+
+		Parameters
+		----------
+		link : str
+			The link to add/delete.
+		
+		Returns
+		-------
+		bool
+			`True` if the link was added, `False` if the link was
+			removed.
+		
+		Raises
+		------
+		ValueError
+			If the given link was invalid.
+		"""
+		
+		pass
