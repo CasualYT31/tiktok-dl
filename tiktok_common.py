@@ -16,6 +16,7 @@ Exports
 	* print_pages - Prints strings to standard output as pages.
 	* load_config - Loads a configuration file and returns it.
 	* clean_up_username - Cleans up a username, ready for processing.
+	* clean_up_property_name - Cleans up a property name.
 """
 
 import os
@@ -245,3 +246,19 @@ def clean_up_username(username: str) -> str:
 	"""
 
 	return username.strip().lower()
+
+def clean_up_property_name(property: str) -> str:
+	"""Cleans up a property name, ready for processing.
+	
+	Parameters
+	----------
+	property : str
+		The property name to clean up.
+	
+	Returns
+	-------
+	str
+		The cleaned up property name.
+	"""
+
+	return property.strip().lower()

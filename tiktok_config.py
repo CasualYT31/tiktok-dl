@@ -191,7 +191,7 @@ def perform_sets(config: dict, commands: list[tuple[str, str, str]], \
 	for command in commands:
 		# Clean up the usernames and property names.
 		username = common.clean_up_username(command[0])
-		property = command[1].strip().lower()
+		property = common.clean_up_property_name(command[1])
 		value = command[2]
 		# Skip command if the property name is invalid.
 		if property == "ignore":
