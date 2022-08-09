@@ -17,6 +17,7 @@ Exports
 	* load_config - Loads a configuration file and returns it.
 	* clean_up_username - Cleans up a username, ready for processing.
 	* clean_up_property_name - Cleans up a property name.
+	* clean_up_link - Cleans up a link.
 """
 
 import os
@@ -262,3 +263,24 @@ def clean_up_property_name(property: str) -> str:
 	"""
 
 	return property.strip().lower()
+
+def clean_up_link(link: str) -> str:
+	"""Cleans up a link, ready for processing.
+	
+	Parameters
+	----------
+	link : str
+		The link to clean up.
+	
+	Returns
+	-------
+	str
+		The cleaned up link.
+	"""
+
+	link = link.strip().lower()
+	if link.find('?') >= 0:
+		link = link[:link.find('?')]
+	if link != "" and link[-1] == '/':
+		link = link[:-1]
+	return link

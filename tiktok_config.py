@@ -248,11 +248,7 @@ def perform_ignores(config: dict, ignores: list[str], \
 	for link in ignores:
 		# Clean up the link and extract the username.
 		# If the username cannot be extracted, it's an invalid link.
-		link = link.strip().lower()
-		if link.find('?') >= 0:
-			link = link[:link.find('?')]
-		if link != "" and link[-1] == '/':
-			link = link[:-1]
+		link = common.clean_up_link(link)
 		if link.find('@') < 0 or link.find('/') < 0:
 			common.notice(f"Cannot extract username from link \"{link}\"; " \
 				"the link is invalid.", stream)
