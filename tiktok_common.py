@@ -24,6 +24,7 @@ import os
 import sys
 import io
 import json
+import re
 from argparse import ArgumentParser
 from argparse import Namespace
 
@@ -284,3 +285,48 @@ def clean_up_link(link: str) -> str:
 	if link != "" and link[-1] == '/':
 		link = link[:-1]
 	return link
+
+def link_is_valid(link: str) -> bool:
+	"""Checks if the given link is valid.
+	
+	Parameters
+	----------
+	link : str
+		The link to validate.
+	
+	Returns
+	-------
+	bool
+		`True` if the link is a valid TikTok video link, `False` otherwise.
+	"""
+
+	# This could be refined even further in the future.
+	# E.g. I suspect that there can only be 19 numbers in a video ID,
+	# and there are only some characters that are allowed in a username.
+	return re.compile("https://www.tiktok.com/@.*/video/\\d*").fullmatch(link)
+
+def extract_username_from_link(link: str) -> str:
+	"""Extracts the user from a TikTok video link.
+	
+	This function does not clean up the username or link.
+
+	Parameters
+	----------
+	link : str
+		The TikTok video link to extract from.
+	
+	Returns
+	-------
+	The username.
+
+	Raises
+	------
+	ValueError
+		When the given link wasn't a valid TikTok video link.
+	"""
+
+	if (link_is_valid(link)):
+		username = link[link.find('@') + 1:]
+		return username[:username.find('/')]
+	else:
+		raise ValueError()

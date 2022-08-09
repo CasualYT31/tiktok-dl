@@ -249,27 +249,27 @@ def perform_ignores(config: dict, ignores: list[str], \
 		# Clean up the link and extract the username.
 		# If the username cannot be extracted, it's an invalid link.
 		link = common.clean_up_link(link)
-		if link.find('@') < 0 or link.find('/') < 0:
+		try:
+			username = common.extract_username_from_link(link)
+		except:
 			common.notice(f"Cannot extract username from link \"{link}\"; " \
 				"the link is invalid.", stream)
+			continue
+		# If this is a new user, inform the user.
+		if username not in result:
+			common.notice("Creating new configuration object for user " \
+				f"\"{username}\".", stream)
+			result[username] = {}
+		if "ignore" not in result[username]:
+			result[username]["ignore"] = []
+		if link in result[username]["ignore"]:
+			common.notice(f"Removing link \"{link}\" from user " \
+				f"\"{username}\"'s ignored links.", stream)
+			result[username]["ignore"].remove(link)
 		else:
-			username = link[link.find('@') + 1:]
-			username = username[:username.find('/')]
-			# If this is a new user, inform the user.
-			if username not in result:
-				common.notice("Creating new configuration object for user " \
-					f"\"{username}\".", stream)
-				result[username] = {}
-			if "ignore" not in result[username]:
-				result[username]["ignore"] = []
-			if link in result[username]["ignore"]:
-				common.notice(f"Removing link \"{link}\" from user "
-					f"\"{username}\"'s ignored links.", stream)
-				result[username]["ignore"].remove(link)
-			else:
-				common.notice(f"Adding link \"{link}\" to user "
-					f"\"{username}\"'s ignored links.", stream)
-				result[username]["ignore"].append(link)
+			common.notice(f"Adding link \"{link}\" to user " \
+				f"\"{username}\"'s ignored links.", stream)
+			result[username]["ignore"].append(link)
 	return result
 
 def perform_deletes(config: dict, usernames: list[str], \
