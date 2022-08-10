@@ -18,9 +18,13 @@ Exports
 	* clean_up_username - Cleans up a username, ready for processing.
 	* clean_up_property_name - Cleans up a property name.
 	* clean_up_link - Cleans up a link.
+	* link_is_valid - Checks if a link is a valid TikTok video link.
+	* date_is_valid - Checks if a date is in the right format.
+	* comment_is_valid - Checks if a comment is valid for JSON storage.
+	* extract_username_from_link - Get a TikTok user from a TikTok link.
+	* user_config - Class representing a set of user configurations.
 """
 
-from multiprocessing.sharedctypes import Value
 import os
 import sys
 import io
@@ -308,7 +312,10 @@ def link_is_valid(link: str) -> bool:
 	# This could be refined even further in the future.
 	# E.g. I suspect that there can only be 19 numbers in a video ID,
 	# and there are only some characters that are allowed in a username.
-	return re.compile("https://www.tiktok.com/@.*/video/\\d*").fullmatch(link)
+	if re.compile("https://www.tiktok.com/@.*/video/\\d*").fullmatch(link):
+		return True
+	else:
+		return False
 
 def date_is_valid(date: str) -> bool:
 	"""Checks `date` to see if it is of the correct format.
@@ -326,7 +333,10 @@ def date_is_valid(date: str) -> bool:
 	
 	if not isinstance(date, str):
 		return False
-	return re.compile("\\d{7}").fullmatch(date)
+	if re.compile("\\d{8}").fullmatch(date):
+		return True
+	else:
+		return False
 
 def comment_is_valid(comment: str) -> bool:
 	"""Checks `comment` to see if it is of the correct format.

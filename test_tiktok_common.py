@@ -19,6 +19,12 @@ from argparse import ArgumentParser
 from json.decoder import JSONDecodeError
 import tiktok_common as t
 
+TEST_LINK = \
+	"https://www.tiktok.com/@bts_official_bighit/video/7123150069146094849"
+TEST_VAR_LINK = \
+	"https://www.tiktok.com/@bts_official_bighit/video/7123150069146094849" \
+	"?is_copy_url=1&is_from_webapp=v1"
+
 class WriteTestCase(unittest.TestCase):
 	def setUp(self):
 		self.strstream = io.StringIO()
@@ -271,6 +277,100 @@ class SaveConfigTestCase(unittest.TestCase):
 		builtins.open.assert_called_once_with( \
 			"File_Path", mode='w', encoding='UTF-8')
 		builtins.open.return_value.write.assert_called_once_with('{}')
+
+class CleanUpUsernameTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		self.assertEquals(t.clean_up_username(""), "")
+	
+	def test_correct_string(self):
+		self.assertEquals(t.clean_up_username("abcdefg__hi."), "abcdefg__hi.")
+	
+	def test_incorrect_string(self):
+		self.assertEquals(t.clean_up_username(" ABCdEFg._.5\t \t"), \
+			"abcdefg._.5")
+
+class CleanUpPropertyNameTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		self.assertEquals(t.clean_up_property_name(""), "")
+	
+	def test_correct_string(self):
+		self.assertEquals(t.clean_up_property_name("ignore"), "ignore")
+	
+	def test_incorrect_string(self):
+		self.assertEquals(t.clean_up_property_name("\t\nBIGPROPERTY   "), \
+			"bigproperty")
+
+class CleanUpLinkTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		self.assertEquals(t.clean_up_link(""), "")
+	
+	def test_correct_string(self):
+		self.assertEquals(t.clean_up_link(TEST_LINK), TEST_LINK)
+	
+	def test_incorrect_string(self):
+		self.assertEquals(t.clean_up_link("\r\n" + TEST_LINK + "/   "), \
+			TEST_LINK)
+
+	def test_variables_string(self):
+		self.assertEquals(t.clean_up_link(TEST_VAR_LINK), TEST_LINK)
+
+class LinkIsValidTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		self.assertFalse(t.link_is_valid(""))
+	
+	def test_invalid_objects(self):
+		self.assertFalse(t.link_is_valid(None))
+		self.assertFalse(t.link_is_valid(89))
+		self.assertFalse(t.link_is_valid([TEST_LINK]))
+	
+	def test_valid_link(self):
+		self.assertTrue(t.link_is_valid(TEST_LINK))
+	
+	def test_variables_link(self):
+		self.assertFalse(t.link_is_valid(TEST_VAR_LINK))
+
+class DateIsValidTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		self.assertFalse(t.date_is_valid(""))
+	
+	def test_invalid_objects(self):
+		self.assertFalse(t.date_is_valid(None))
+		self.assertFalse(t.date_is_valid(89))
+		self.assertFalse(t.date_is_valid([TEST_LINK]))
+	
+	def test_valid_dates(self):
+		self.assertTrue(t.date_is_valid("20220810"))
+		self.assertTrue(t.date_is_valid("99999999"))
+	
+class CommentIsValidTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		self.assertTrue(t.comment_is_valid(""))
+	
+	def test_invalid_objects(self):
+		self.assertFalse(t.comment_is_valid(None))
+		self.assertFalse(t.comment_is_valid(89))
+		self.assertFalse(t.comment_is_valid([TEST_LINK]))
+	
+	def test_valid_comments(self):
+		self.assertTrue(t.comment_is_valid("20220810"))
+		self.assertTrue(t.comment_is_valid(TEST_LINK))
+		self.assertTrue(t.comment_is_valid("Hello,\nworld!"))
+
+class ExtractUsernameFromLinkTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		with self.assertRaises(ValueError):
+			t.extract_username_from_link("")
+	
+	def test_invalid_link(self):
+		with self.assertRaises(ValueError):
+			t.extract_username_from_link( \
+				"https://www.tiktok.com/bts_official_bighit/video/927231434")
+	
+	def test_valid_links(self):
+		self.assertTrue(t.extract_username_from_link(TEST_LINK), \
+			"bts_official_bighit")
+		self.assertTrue(t.extract_username_from_link(TEST_VAR_LINK), \
+			"bts_official_bighit")
 
 if __name__ == "__main__":
 	unittest.main()
