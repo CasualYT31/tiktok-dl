@@ -25,6 +25,7 @@ import sys
 import io
 import json
 import re
+import copy
 from argparse import ArgumentParser
 from argparse import Namespace
 
@@ -308,7 +309,7 @@ def link_is_valid(link: str) -> bool:
 def extract_username_from_link(link: str) -> str:
 	"""Extracts the user from a TikTok video link.
 	
-	This function does not clean up the username or link.
+	This function cleans up the username and link.
 
 	Parameters
 	----------
@@ -325,9 +326,10 @@ def extract_username_from_link(link: str) -> str:
 		When the given link wasn't a valid TikTok video link.
 	"""
 
+	link = clean_up_link(link)
 	if (link_is_valid(link)):
 		username = link[link.find('@') + 1:]
-		return username[:username.find('/')]
+		return clean_up_username(username[:username.find('/')])
 	else:
 		raise ValueError()
 
@@ -348,6 +350,25 @@ class user_config:
 
 		self.config = {}
 	
+	# "Public" methods page 1.
+
+	def user_is_configured(self, user: str) -> bool:
+		"""Sees if a user has a configuration object.
+		
+		Parameters
+		----------
+		user : str
+			The user to query.
+		
+		Returns
+		-------
+		bool
+			`True` if the user exists in the configuration object,
+			`False` if not.
+		"""
+
+		return clean_up_username(user) in self.config
+	
 	# Helper methods. Avoid calling these from outside of the class.
 
 	def __create_new_user(self, user: str) -> None:
@@ -364,7 +385,7 @@ class user_config:
 		self.config[user]["ignore"] = []
 		self.config[user]["comment"] = ""
 	
-	def __set_property(self, user: str, property: str, value) -> bool:
+	def __set_property(self, user: str, property: str, value) -> None:
 		"""Sets a property in a user's configuration object.
 		
 		Creates the user's configuration object if it didn't already
@@ -378,21 +399,13 @@ class user_config:
 			The name of the property to update.
 		value
 			The value to set to the property.
-
-		Returns
-		-------
-		bool
-			`True` if the user object had to be created, `False` if the
-			user already existed.
 		"""
 
 		user = clean_up_username(user)
 		property = clean_up_property_name(property)
-		ret = user not in self.config
-		if ret:
+		if not self.user_is_configured(user):
 			self.__create_new_user(user)
 		self.config[user][property] = value
-		return ret
 	
 	def __get_property(self, user: str, property: str):
 		"""Gets a property from a user's configuration object.
@@ -403,8 +416,6 @@ class user_config:
 			The name of the user.
 		property : str
 			The name of the property to get.
-		value
-			The value to set to the property.
 
 		Returns
 		-------
@@ -428,7 +439,7 @@ class user_config:
 		else:
 			raise KeyError()
 
-	# "Public" methods.
+	# "Public" methods page 2.
 
 	def get_not_before(self, user: str) -> str:
 		"""Get a user's "notbefore" property.
@@ -456,7 +467,7 @@ class user_config:
 		
 		return self.__get_property(user, "notbefore")
 	
-	def set_not_before(self, user: str, date: str) -> bool:
+	def set_not_before(self, user: str, date: str) -> None:
 		"""Set a user's "notbefore" property.
 
 		If the given user doesn't currently exist in the configuration,
@@ -469,12 +480,6 @@ class user_config:
 		date : str
 			The date in `YYYYMMDD` format.
 		
-		Returns
-		-------
-		bool
-			`True` if a new user object was created, `False` if the user
-			already had a configuration object.
-		
 		Raises
 		------
 		ValueError
@@ -483,9 +488,82 @@ class user_config:
 		
 		if not re.compile("\\d{7}").fullmatch(date):
 			raise ValueError()
-		return self.__set_property(user, "notbefore", date)
+		self.__set_property(user, "notbefore", date)
 
-	def toggle_ignore(link: str) -> bool:
+	def get_comment(self, user: str) -> str:
+		"""Get a user's "comment" property.
+
+		This property is ignored by `tiktok-dl` and is only seen by the
+		user in `tiktok-config`.
+
+		Parameters
+		----------
+		user : str
+			The user to get the "comment" property of.
+		
+		Returns
+		-------
+		str
+			The comment if the property is set, or a blank string if the
+			property is not set.
+		
+		Raises
+		------
+		KeyError
+			If the given user does not have a configuration object.
+		"""
+		
+		return self.__get_property(user, "comment")
+	
+	def set_comment(self, user: str, comment: str) -> None:
+		"""Set a user's "comment" property.
+
+		If the given user doesn't currently exist in the configuration,
+		a new user object will be created.
+		
+		Parameters
+		----------
+		user : str
+			The user to set the "comment" property of.
+		comment : str
+			The comment.
+		
+		Raises
+		------
+		TypeError
+			If the given comment was not a string.
+		"""
+		
+		if not isinstance(comment, str):
+			raise ValueError()
+		self.__set_property(user, "comment", comment)
+
+	def get_ignore_links(self, user: str) -> list[str]:
+		"""Copies a user's list of ignored links.
+		
+		Parameters
+		----------
+		user : str
+			The user to get the "ignore" property of.
+		
+		Returns
+		-------
+		list[str]
+			A deep copied list of ignored links.
+		
+		Raises
+		------
+		KeyError
+			If the given user does not have a configuration object.
+		"""
+
+		user = clean_up_username(user)
+		if self.user_is_configured(user):
+			return copy.deepcopy(self.config[user]["ignore"])
+		else:
+			raise KeyError()
+
+	def toggle_ignore_link(self, link: str) -> bool:
 		"""Either adds or removes a link from the correct ignore list.
 		
 		Each user can have a list of links that are to be ignored when
@@ -494,6 +572,9 @@ class user_config:
 		
 		If the link is present within the user's ignore list, it is
 		removed. If the link wasn't present, it is added.
+
+		If the extracted user doesn't currently exist in the
+		configuration, a new user object will be created.
 
 		Parameters
 		----------
@@ -512,4 +593,13 @@ class user_config:
 			If the given link was invalid.
 		"""
 		
-		pass
+		link = clean_up_link(link)
+		user = extract_username_from_link(link)
+		if user not in self.config:
+			self.__create_new_user(user)
+		if link in self.config[user]["ignore"]:
+			self.config[user]["ignore"].remove(link)
+			return False
+		else:
+			self.config[user]["ignore"].append(link)
+			return True
