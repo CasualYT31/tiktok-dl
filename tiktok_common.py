@@ -20,6 +20,7 @@ Exports
 	* clean_up_link - Cleans up a link.
 """
 
+from multiprocessing.sharedctypes import Value
 import os
 import sys
 import io
@@ -298,13 +299,50 @@ def link_is_valid(link: str) -> bool:
 	Returns
 	-------
 	bool
-		`True` if the link is a valid TikTok video link, `False` otherwise.
+		`True` if the link is a valid TikTok video link, `False`
+		otherwise.
 	"""
 
+	if not isinstance(link, str):
+		return False
 	# This could be refined even further in the future.
 	# E.g. I suspect that there can only be 19 numbers in a video ID,
 	# and there are only some characters that are allowed in a username.
 	return re.compile("https://www.tiktok.com/@.*/video/\\d*").fullmatch(link)
+
+def date_is_valid(date: str) -> bool:
+	"""Checks `date` to see if it is of the correct format.
+	
+	Parameters
+	----------
+	date : str
+		The date to check.
+	
+	Returns
+	-------
+	bool
+		`True` if the date is valid, `False` otherwise.
+	"""
+	
+	if not isinstance(date, str):
+		return False
+	return re.compile("\\d{7}").fullmatch(date)
+
+def comment_is_valid(comment: str) -> bool:
+	"""Checks `comment` to see if it is of the correct format.
+	
+	Parameters
+	----------
+	comment : str
+		The comment to check.
+	
+	Returns
+	-------
+	bool
+		`True` if the comment is valid, `False` otherwise.
+	"""
+	
+	return isinstance(comment, str)
 
 def extract_username_from_link(link: str) -> str:
 	"""Extracts the user from a TikTok video link.
@@ -441,6 +479,71 @@ class user_config:
 
 	# "Public" methods page 2.
 
+	def load_config(self, filepath: os.path) -> None:
+		"""Loads a UTF-8 configuration file into this object.
+
+		This method only overwrites the currently stored configuration
+		with the given script contents if it follows `tiktok-dl`'s
+		format.
+
+		All usernames, links, etc. will be cleaned up. In the case that
+		two user objects exist, "AAA" and "aaa", "AAA" will be
+		discarded. If there is just "AAA", then its object will be
+		copied to "aaa" and the original "AAA" object will be deleted.
+		
+		Parameters
+		----------
+		filepath : os.path
+			The path leading to the configuration file.
+		
+		Raises
+		------
+		Any exception that can be raised by `open()` or `json.load()`.
+		TypeError, KeyError, ValueError
+			When the given JSON script did not have the format that
+			`tiktok-dl` expects.
+		"""
+
+		with open(filepath, encoding="UTF-8") as script:
+			new_config = json.load(script)
+		# Check new_config before setting it to self.config
+		config = {}
+		for key, value in enumerate(new_config):
+			new_key = clean_up_username(key)
+			if new_key != key and new_key in new_config:
+				# Skip "AAA" (see doc comment)
+				continue
+			if date_is_valid(value["notbefore"]):
+				config[new_key]["notbefore"] = value["notbefore"]
+			else:
+				raise ValueError()
+			if comment_is_valid(value["comment"]):
+				config[new_key]["comment"] = value["comment"]
+			else:
+				raise ValueError()
+			if isinstance(value["ignore"], list) and \
+				all([link_is_valid(link) for link in value["ignore"]]):
+				config[new_key]["ignore"] = value["ignore"]
+			else:
+				raise ValueError()
+		self.config = config
+	
+	def save_config(self, filepath: os.path) -> None:
+		"""Saves this object to a UTF-8 configuration file.
+		
+		Parameters
+		----------
+		filepath : os.path
+			The path leading to the file to create or overwrite.
+	
+		Raises
+		------
+		Any exception that can be raised by `open()` or `json.dump()`.
+		"""
+
+		with open(filepath, mode="w", encoding="UTF-8") as script:
+			json.dump(self.config, script)
+
 	def get_not_before(self, user: str) -> str:
 		"""Get a user's "notbefore" property.
 
@@ -486,7 +589,7 @@ class user_config:
 			If the given date string was not in the correct format.
 		"""
 		
-		if not re.compile("\\d{7}").fullmatch(date):
+		if not self.validate_date(date):
 			raise ValueError()
 		self.__set_property(user, "notbefore", date)
 
@@ -534,7 +637,7 @@ class user_config:
 			If the given comment was not a string.
 		"""
 		
-		if not isinstance(comment, str):
+		if not comment_is_valid(comment):
 			raise ValueError()
 		self.__set_property(user, "comment", comment)
 
