@@ -22,7 +22,7 @@ Exports
 	* date_is_valid - Checks if a date is in the right format.
 	* comment_is_valid - Checks if a comment is valid for JSON storage.
 	* extract_username_from_link - Get a TikTok user from a TikTok link.
-	* user_config - Class representing a set of user configurations.
+	* UserConfig - Class representing a set of user configurations.
 """
 
 import os
@@ -199,27 +199,6 @@ def print_pages(pages: list[str]):
 		if i < len(pages) - 1:
 			print()
 
-def load_config(filepath: os.path) -> dict:
-	"""Loads a given UTF-8 configuration file and returns it.
-	
-	Parameters
-	----------
-	filepath : os.path
-		The path leading to the configuration file.
-	
-	Returns
-	-------
-	dict
-		The root JSON object containing all of the user objects.
-	
-	Raises
-	------
-	Any exception that can be raised by `open()` or `json.load()`.
-	"""
-	
-	with open(filepath, encoding="UTF-8") as script:
-		return json.load(script)
-
 def save_config(filepath: os.path, config: dict) -> None:
 	"""Saves a given UTF-8 configuration file.
 	
@@ -381,7 +360,7 @@ def extract_username_from_link(link: str) -> str:
 	else:
 		raise ValueError()
 
-class user_config:
+class UserConfig:
 	"""Holds the tiktok-dl configurations for a collection of TikTok
 	users.
 	
@@ -419,19 +398,19 @@ class user_config:
 	
 	# Helper methods. Avoid calling these from outside of the class.
 
-	def __create_new_user(self, user: str) -> None:
-		"""Creates a new user object for this configuration.
+	def __create_new_user(self, config: dict, user: str) -> None:
+		"""Creates a new user object for a given configuration.
 
 		Parameters
 		----------
+		config : dict
+			The configuration object to change.
 		user : str
 			The name of the user.
 		"""
 
 		user = clean_up_username(user)
-		self.config[user]["notbefore"] = ""
-		self.config[user]["ignore"] = []
-		self.config[user]["comment"] = ""
+		config[user] = {'notbefore': "", 'ignore': [], 'comment': ""}
 	
 	def __set_property(self, user: str, property: str, value) -> None:
 		"""Sets a property in a user's configuration object.
@@ -452,7 +431,7 @@ class user_config:
 		user = clean_up_username(user)
 		property = clean_up_property_name(property)
 		if not self.user_is_configured(user):
-			self.__create_new_user(user)
+			self.__create_new_user(self.config, user)
 		self.config[user][property] = value
 	
 	def __get_property(self, user: str, property: str):
@@ -500,6 +479,9 @@ class user_config:
 		two user objects exist, "AAA" and "aaa", "AAA" will be
 		discarded. If there is just "AAA", then its object will be
 		copied to "aaa" and the original "AAA" object will be deleted.
+		If there are user objects "AAA" and "AaA", there will always be
+		a user object "aaa" with either "AAA"'s values or "AaA"'s
+		values. Whose values, though, is not guaranteed.
 		
 		Parameters
 		----------
@@ -518,11 +500,12 @@ class user_config:
 			new_config = json.load(script)
 		# Check new_config before setting it to self.config
 		config = {}
-		for key, value in enumerate(new_config):
+		for key, value in new_config.items():
 			new_key = clean_up_username(key)
 			if new_key != key and new_key in new_config:
 				# Skip "AAA" (see doc comment)
 				continue
+			self.__create_new_user(config, new_key)
 			if date_is_valid(value["notbefore"]):
 				config[new_key]["notbefore"] = value["notbefore"]
 			else:
@@ -709,7 +692,7 @@ class user_config:
 		link = clean_up_link(link)
 		user = extract_username_from_link(link)
 		if user not in self.config:
-			self.__create_new_user(user)
+			self.__create_new_user(self.config, user)
 		if link in self.config[user]["ignore"]:
 			self.config[user]["ignore"].remove(link)
 			return False

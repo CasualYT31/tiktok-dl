@@ -237,35 +237,6 @@ class PrintPagesTestCase(unittest.TestCase):
 			"2\nPage 2 out of 5...\n3\nPage 3 out of 5...\n" \
 			"4\nPage 4 out of 5...\n5\nPage 5 out of 5...")
 
-class LoadConfigTestCase(unittest.TestCase):
-	def test_no_file(self):
-		with self.assertRaises(FileNotFoundError):
-			t.load_config("")
-	
-	@patch("builtins.open", new_callable=mock_open, read_data="{}")
-	def test_with_empty_object(self, mock_file):
-		# self.assertEqual(open("./config.json").read(), "{}")
-		# mock_file.assert_called_with("./config.json")
-		t.load_config("./config.json")
-	
-	@patch("builtins.open", new_callable=mock_open, \
-		read_data='{"username": {"ignore": ["link", "link2"], "notbefore": '
-		'"20200505", "comment": "Hello"}}')
-	def test_with_valid_object(self, mock_file):
-		config = t.load_config("./config.json")
-		self.assertIn("username", config)
-		self.assertIn("ignore", config["username"])
-		self.assertIn("notbefore", config["username"])
-		self.assertIn("comment", config["username"])
-		self.assertEqual(2, len(config["username"]["ignore"]))
-	
-	@patch("builtins.open", new_callable=mock_open, \
-		read_data='{"username": {"ignore": ["link", "link2", "notbefore": '
-		'"20200505", "comment": "Hello"}}')
-	def test_with_invalid_script(self, mock_file):
-		with self.assertRaises(JSONDecodeError):
-			config = t.load_config("./config.json")
-
 class SaveConfigTestCase(unittest.TestCase):
 	def setUp(self):
 		self._orig_pathexists = os.path.exists
