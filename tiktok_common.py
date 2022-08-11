@@ -14,7 +14,6 @@ Exports
 		terminal.
 	* create_pages - Divides a chunk of text into pages.
 	* print_pages - Prints strings to standard output as pages.
-	* load_config - Loads a configuration file and returns it.
 	* clean_up_username - Cleans up a username, ready for processing.
 	* clean_up_property_name - Cleans up a property name.
 	* clean_up_link - Cleans up a link.
@@ -33,6 +32,7 @@ import re
 import copy
 from argparse import ArgumentParser
 from argparse import Namespace
+from xmlrpc.client import boolean
 
 def write(msg: str, stream: io.TextIOBase = sys.stdout, end: str = '\n') \
 	-> None:
@@ -368,6 +368,10 @@ def extract_username_from_link(link: str) -> str:
 	else:
 		raise ValueError()
 
+class IgnoreError(Exception):
+	"""Raised when "ignore" was used with `UserConfig.set()`."""
+	pass
+
 class UserConfig:
 	"""Holds the tiktok-dl configurations for a collection of TikTok
 	users.
@@ -418,7 +422,7 @@ class UserConfig:
 		"""
 
 		user = clean_up_username(user)
-		config[user] = {'notbefore': "", 'ignore': [], 'comment': ""}
+		config[user] = {'notbefore': "20000101", 'ignore': [], 'comment': ""}
 	
 	def __set_property(self, user: str, property: str, value) -> None:
 		"""Sets a property in a user's configuration object.
@@ -643,6 +647,51 @@ class UserConfig:
 			raise ValueError()
 		self.__set_property(user, "comment", comment)
 
+	def set(self, property: str, user: str, value) -> str:
+		"""Sets a property for a given user.
+		
+		Parameters
+		----------
+		property : str
+			The string name for the property.
+		user : str
+			The name of the user to update.
+		value
+			The value to assign to the property.
+		
+		Returns
+		-------
+		str
+			If a new user object was created, the name of the user is
+			returned. A blank string otherwise.
+		
+		Raises
+		------
+		IgnoreError
+			If the "ignore" property was given. This method does not
+			support the "ignore" property.
+		AttributeError
+			If an invalid property was given.
+		ValueError
+			If the given value wasn't of the correct format for the
+			property.
+		"""
+
+		ret = not self.user_is_configured(user)
+		property = clean_up_property_name(property)
+		if property == "notbefore":
+			self.set_not_before(user, value)
+		elif property == "comment":
+			self.set_comment(user, value)
+		elif property == "ignore":
+			raise IgnoreError()
+		else:
+			raise AttributeError()
+		if ret:
+			return clean_up_username(user)
+		else:
+			return ""
+
 	def get_ignore_links(self, user: str) -> list[str]:
 		"""Copies a user's list of ignored links.
 		
@@ -708,3 +757,76 @@ class UserConfig:
 		else:
 			self.config[user]["ignore"].append(link)
 			return True
+	
+	def delete_user(self, user: str) -> None:
+		"""Deletes a user configuration object.
+		
+		Parameters
+		----------
+		user : str
+			The name of the user to delete. Is cleaned up inside the
+			method.
+		
+		Raises
+		------
+		KeyError
+			If the given user did not exist.
+		"""
+
+		user = clean_up_username(user)
+		if self.config.pop(user, None) == None:
+			raise KeyError()
+	
+	def list_users(self, filter_re: str=".*") -> list[str]:
+		"""Lists the users configured in this object.
+		
+		Parameters
+		----------
+		filter : str
+			The regular expression which a username must fully match before
+			before included in the returning list. Defaults to listing all
+			users.
+		
+		Returns
+		-------
+		list[str]
+			An ascending sorted list of usernames.
+		
+		Raises
+		------
+		re.error
+			If the given regular expression was invalid.
+		"""
+
+		result = list(filter(re.compile(filter_re).fullmatch,
+			list(self.config.keys())))
+		result.sort()
+		return result
+	
+	def user_to_string(self, user: str) -> str:
+		"""Creates a readable string representation of a user's config.
+		
+		Parameters
+		----------
+		user : str
+			The name of the user.
+		
+		Return
+		------
+		str
+			The readable string.
+		
+		Raises
+		------
+		KeyError
+			If the given user didn't exist at the time of calling.
+		"""
+
+		if self.user_is_configured(user):
+			result = f"~~~{clean_up_username(user)}~~~\n"
+			result += f"No videos from before: {self.get_not_before(user)}.\n"
+			result += f"Comment: {self.get_comment(user)}\n"
+			result += f"Ignoring {len(self.get_ignore_links(user))} links.\n"
+			return result
+		else:
+			raise KeyError()

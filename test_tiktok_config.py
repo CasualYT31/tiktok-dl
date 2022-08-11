@@ -8,6 +8,7 @@ from unittest.mock import patch, mock_open
 import io
 from argparse import ArgumentError
 import tiktok_config as t
+from test_tiktok_common import TEST_LINK
 
 class ArgumentParserTestCase(unittest.TestCase):
 	def setUp(self):
@@ -102,21 +103,21 @@ class LoadOrCreateConfigTestCase(unittest.TestCase):
 	def test_non_existent_file(self):
 		str_stream = io.StringIO()
 		config = t.load_or_create_config("", str_stream)
-		self.assertEqual(config, {})
+		self.assertEqual(config.config, {})
 		self.assertIn( \
 			"Will create new configuration script at \"\".", \
 			str_stream.getvalue())
 	
 	@patch("builtins.open", new_callable=mock_open, \
-		read_data='{"username": {"ignore": ["link", "link2"], "notbefore": '
-		'"20200505", "comment": "Hello"}}')
+		read_data=f'{{"username": {{"ignore": ["{TEST_LINK}", "'
+		f'{TEST_LINK}"], "notbefore": "20200505", "comment": "Hello"}}}}')
 	def test_with_valid_object(self, mock_file):
 		config = t.load_or_create_config("./config.json")
-		self.assertIn("username", config)
-		self.assertIn("ignore", config["username"])
-		self.assertIn("notbefore", config["username"])
-		self.assertIn("comment", config["username"])
-		self.assertEqual(2, len(config["username"]["ignore"]))
+		self.assertIn("username", config.config)
+		self.assertIn("ignore", config.config["username"])
+		self.assertIn("notbefore", config.config["username"])
+		self.assertIn("comment", config.config["username"])
+		self.assertEqual(2, len(config.config["username"]["ignore"]))
 
 class PerformSetsTestCase(unittest.TestCase):
 	def setUp(self):
