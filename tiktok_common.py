@@ -10,17 +10,18 @@ Exports
 	* version_string - Returns the current version of the software.
 	* check_python_version - Shuts down if the installed Python is old.
 	* check_and_parse_arguments - Parses command-line arguments.
-	* comfortable_terminal_height - The "effective" height of the
-		terminal.
+	* comfortable_terminal_height - "Effective" height of the console.
 	* create_pages - Divides a chunk of text into pages.
 	* print_pages - Prints strings to standard output as pages.
 	* clean_up_username - Cleans up a username, ready for processing.
 	* clean_up_property_name - Cleans up a property name.
 	* clean_up_link - Cleans up a link.
+	* clean_up_date - Cleans up a date string.
 	* link_is_valid - Checks if a link is a valid TikTok video link.
 	* date_is_valid - Checks if a date is in the right format.
 	* comment_is_valid - Checks if a comment is valid for JSON storage.
 	* extract_username_from_link - Get a TikTok user from a TikTok link.
+	* IgnoreError - Raised when "ignore" is given to `UserConfig.set()`.
 	* UserConfig - Class representing a set of user configurations.
 """
 

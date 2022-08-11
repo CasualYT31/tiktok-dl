@@ -76,9 +76,9 @@ Command-Line Options
 
 Exports
 -------
+	* ConfigError - Exception thrown when loading config failed.
 	* argument_parser - Constructs the tiktok-config argument parser.
-	* load_or_create_config - Attempts to load a given configuration
-		file.
+	* load_or_create_config - Attempts to load a given config file.
 	* perform_sets - Perform set operations on a config object.
 	* perform_ignores - Add or remove links to/from a config object.
 	* perform_deletes - Delete users from a config object.
