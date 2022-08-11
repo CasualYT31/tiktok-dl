@@ -199,25 +199,6 @@ def print_pages(pages: list[str]):
 		if i < len(pages) - 1:
 			print()
 
-def save_config(filepath: os.path, config: dict) -> None:
-	"""Saves a given UTF-8 configuration file.
-	
-	Parameters
-	----------
-	filepath : os.path
-		The path leading to the file to overwrite with the configuration
-		object. Will create the file if it doesn't exist already.
-	config : dict
-		The configuration object to save.
-	
-	Raises
-	------
-	Any exception that can be raised by `open()` or `json.dump()`.
-	"""
-	
-	with open(filepath, mode="w", encoding="UTF-8") as script:
-		json.dump(config, script)
-
 def clean_up_username(username: str) -> str:
 	"""Cleans up a username, ready for processing.
 	
@@ -232,7 +213,10 @@ def clean_up_username(username: str) -> str:
 		The cleaned up username.
 	"""
 
-	return username.strip().lower()
+	if isinstance(username, str):
+		return username.strip().lower()
+	else:
+		return username
 
 def clean_up_property_name(property: str) -> str:
 	"""Cleans up a property name, ready for processing.
@@ -248,7 +232,10 @@ def clean_up_property_name(property: str) -> str:
 		The cleaned up property name.
 	"""
 
-	return property.strip().lower()
+	if isinstance(property, str):
+		return property.strip().lower()
+	else:
+		return property
 
 def clean_up_link(link: str) -> str:
 	"""Cleans up a link, ready for processing.
@@ -264,12 +251,33 @@ def clean_up_link(link: str) -> str:
 		The cleaned up link.
 	"""
 
+	if not isinstance(link, str):
+		return link
 	link = link.strip().lower()
 	if link.find('?') >= 0:
 		link = link[:link.find('?')]
 	if link != "" and link[-1] == '/':
 		link = link[:-1]
 	return link
+
+def clean_up_date(date: str) -> str:
+	"""Cleans up a date, ready for processing.
+	
+	Parameters
+	----------
+	date : str
+		The date to clean up.
+	
+	Returns
+	-------
+	str
+		The cleaned up date string.
+	"""
+
+	if isinstance(date, str):
+		return date.strip()
+	else:
+		return date
 
 def link_is_valid(link: str) -> bool:
 	"""Checks if the given link is valid.
@@ -582,7 +590,8 @@ class UserConfig:
 			If the given date string was not in the correct format.
 		"""
 		
-		if not self.validate_date(date):
+		date = clean_up_date(date)
+		if not date_is_valid(date):
 			raise ValueError()
 		self.__set_property(user, "notbefore", date)
 

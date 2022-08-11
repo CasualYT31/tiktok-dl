@@ -20,9 +20,9 @@ from json.decoder import JSONDecodeError
 import tiktok_common as t
 
 TEST_LINK = \
-	"https://www.tiktok.com/@bts_official_bighit/video/7123150069146094849"
+	"https://www.tiktok.com/@user1/video/7123150069146094849"
 TEST_VAR_LINK = \
-	"https://www.tiktok.com/@bts_official_bighit/video/7123150069146094849" \
+	"https://www.tiktok.com/@user1/video/7123150069146094849" \
 	"?is_copy_url=1&is_from_webapp=v1"
 
 class WriteTestCase(unittest.TestCase):
@@ -237,18 +237,6 @@ class PrintPagesTestCase(unittest.TestCase):
 			"2\nPage 2 out of 5...\n3\nPage 3 out of 5...\n" \
 			"4\nPage 4 out of 5...\n5\nPage 5 out of 5...")
 
-class SaveConfigTestCase(unittest.TestCase):
-	def setUp(self):
-		self._orig_pathexists = os.path.exists
-		os.path.exists = True
-
-	@patch("builtins.open", new_callable=mock_open)
-	def test_with_empty_object(self, mock_file):
-		t.save_config("File_Path", {})
-		builtins.open.assert_called_once_with( \
-			"File_Path", mode='w', encoding='UTF-8')
-		builtins.open.return_value.write.assert_called_once_with('{}')
-
 class CleanUpUsernameTestCase(unittest.TestCase):
 	def test_blank_string(self):
 		self.assertEquals(t.clean_up_username(""), "")
@@ -338,10 +326,8 @@ class ExtractUsernameFromLinkTestCase(unittest.TestCase):
 				"https://www.tiktok.com/bts_official_bighit/video/927231434")
 	
 	def test_valid_links(self):
-		self.assertTrue(t.extract_username_from_link(TEST_LINK), \
-			"bts_official_bighit")
-		self.assertTrue(t.extract_username_from_link(TEST_VAR_LINK), \
-			"bts_official_bighit")
+		self.assertTrue(t.extract_username_from_link(TEST_LINK), "user1")
+		self.assertTrue(t.extract_username_from_link(TEST_VAR_LINK), "user1")
 
 if __name__ == "__main__":
 	unittest.main()
