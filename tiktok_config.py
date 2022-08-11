@@ -416,6 +416,6 @@ if __name__ == "__main__":
 				while True:
 					link = input("> ")
 					config = perform_ignores(config, [link])
-					common.save_config(options.config, config)
+					config.save_config(options.config)
 	except KeyboardInterrupt:
 		common.notice("Exiting...")
