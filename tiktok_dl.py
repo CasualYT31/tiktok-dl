@@ -135,12 +135,44 @@ prefer supplying the username as input rather than a HTML file. It is
 still an invaluable backup option, though, in cases where you want to
 include original videos of duets, or when `yt-dlp` user page scraping
 [temporarily] stops working.
+
+Exports
+-------
+	* argument_parser - Constructs the tiktok-dl argument parser.
 """
 
-import sys
+from argparse import ArgumentParser
 import tiktok_common as common
+from tiktok_common import UserConfig
+import tiktok_config as t
+
+def argument_parser() -> ArgumentParser:
+	"""Generates an argument parser for tiktok-dl.
+	
+	Returns
+	-------
+	argparse.ArgumentParser
+		The argument parser that is compatible with tiktok-dl.
+	"""
+
+	parser = ArgumentParser( add_help=False,
+		description="Downloads and sorts TikTok videos.")
+	parser.add_argument('-h', '--help', action='store_true')
+	parser.add_argument('-v', '--version', action='version', \
+		version=common.version_string())
+	parser.add_argument('-c', '--config', default='./config.json', \
+		metavar='CONFIGPATH')
+	parser.add_argument('input', nargs='*', metavar='INPUT')
+	return parser
 
 if __name__ == "__main__":
-	common.check_python_version()
-	
-	common.print_pages(common.create_pages(__doc__))
+	try:
+		common.check_python_version()
+		options = common.check_and_parse_arguments(argument_parser())
+
+		if options.help:
+			common.print_pages(common.create_pages(__doc__))
+		else:
+			config = t.load_or_create_config(options.config)
+	except (KeyboardInterrupt, t.ConfigError):
+		common.notice("Exiting...")

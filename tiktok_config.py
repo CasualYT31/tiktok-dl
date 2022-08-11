@@ -125,7 +125,7 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('-l', '--list', nargs='?', const='.*', \
 		metavar='FILTER')
 	parser.add_argument('-c', '--config', default='./config.json', \
-		metavar='FILEPATH')
+		metavar='CONFIGPATH')
 	parser.add_argument('--interactive', action='store_true')
 	parser.add_argument('user', nargs='*', metavar='USERNAME')
 	return parser
@@ -377,10 +377,7 @@ if __name__ == "__main__":
 		if options.help:
 			common.print_pages(common.create_pages(__doc__))
 		else:
-			try:
-				config = load_or_create_config(options.config)
-			except ConfigError as err:
-				raise KeyboardInterrupt from err
+			config = load_or_create_config(options.config)
 			if options.set is not None:
 				config = perform_sets(config, options.set)
 			if options.ignore is not None:
@@ -417,5 +414,5 @@ if __name__ == "__main__":
 					link = input("> ")
 					config = perform_ignores(config, [link])
 					config.save_config(options.config)
-	except KeyboardInterrupt:
+	except (KeyboardInterrupt, ConfigError):
 		common.notice("Exiting...")
