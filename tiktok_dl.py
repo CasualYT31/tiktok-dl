@@ -156,10 +156,18 @@ Exports
 	* argument_parser - Constructs the tiktok-dl argument parser.
 """
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
+from concurrent.futures import thread
 import tiktok_common as common
 from tiktok_common import UserConfig
 import tiktok_config as t
+
+def thread_count(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise ArgumentTypeError(f"{value} is an invalid thread number, must "
+			"be > 0")
+    return ivalue
 
 def argument_parser() -> ArgumentParser:
 	"""Generates an argument parser for tiktok-dl.
@@ -177,6 +185,18 @@ def argument_parser() -> ArgumentParser:
 		version=common.version_string())
 	parser.add_argument('-c', '--config', default='./config.json', \
 		metavar='CONFIGPATH')
+	parser.add_argument('-i', '--ignore', action='append', \
+		metavar='LINK')
+	parser.add_argument('-l', '--list', metavar='FILEPATH')
+	parser.add_argument('-u', '--user-method', choices=['ytdlp', 'html'], \
+		default='ytdlp', metavar='METHOD')
+	parser.add_argument('-d', '--delete-after', action='append', \
+		metavar='FILE')
+	parser.add_argument('--history', default='./usernames.txt', \
+		metavar='FILEPATH')
+	parser.add_argument('-n', '--no-history', action='store_true')
+	parser.add_argument('-s', '--split', type=thread_count, default=1,
+		metavar='THREADS')
 	parser.add_argument('input', nargs='*', metavar='INPUT')
 	return parser
 
