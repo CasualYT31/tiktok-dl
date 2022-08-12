@@ -10,8 +10,7 @@ that will be tested.
 """
 
 import unittest
-from unittest.mock import patch, mock_open
-import builtins
+from unittest.mock import patch
 import io
 import os
 import sys
@@ -273,17 +272,43 @@ class CleanUpLinkTestCase(unittest.TestCase):
 	def test_variables_string(self):
 		self.assertEquals(t.clean_up_link(TEST_VAR_LINK), TEST_LINK)
 
+class UsernameIsValidTestCase(unittest.TestCase):
+	def test_blank_string(self):
+		self.assertFalse(t.username_is_valid(""))
+	
+	def test_invalid_names(self):
+		self.assertFalse(t.username_is_valid(";hi"))
+		self.assertFalse(t.username_is_valid("|\nhi"))
+		self.assertFalse(t.username_is_valid(TEST_LINK))
+		self.assertFalse(t.username_is_valid("TEST_LINK"))
+	
+	def test_valid_names(self):
+		self.assertTrue(t.username_is_valid("a"))
+		self.assertTrue(t.username_is_valid("first_last"))
+		self.assertTrue(t.username_is_valid("first_last._."))
+		self.assertTrue(t.username_is_valid("test_link"))
+
 class LinkIsValidTestCase(unittest.TestCase):
 	def test_blank_string(self):
 		self.assertFalse(t.link_is_valid(""))
 	
-	def test_invalid_objects(self):
+	def test_invalid_links(self):
 		self.assertFalse(t.link_is_valid(None))
 		self.assertFalse(t.link_is_valid(89))
 		self.assertFalse(t.link_is_valid([TEST_LINK]))
+		self.assertFalse(t.link_is_valid(
+			"https://www.tiktok.com/@/video/1234567890123456789"))
+		self.assertFalse(t.link_is_valid(
+			"https://www.tiktok.com//video/1234567890123456789"))
+		self.assertFalse(t.link_is_valid(
+			"https://www.tiktok.com/@a/video/123456789012345678"))
+		self.assertFalse(t.link_is_valid(
+			"https://www.tiktok.com/@a/video/12345678901234567890"))
 	
 	def test_valid_link(self):
 		self.assertTrue(t.link_is_valid(TEST_LINK))
+		self.assertTrue(t.link_is_valid(
+			"https://www.tiktok.com/@a/video/1234567890123456789"))
 	
 	def test_variables_link(self):
 		self.assertFalse(t.link_is_valid(TEST_VAR_LINK))

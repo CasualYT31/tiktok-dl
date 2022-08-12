@@ -17,6 +17,7 @@ Exports
 	* clean_up_property_name - Cleans up a property name.
 	* clean_up_link - Cleans up a link.
 	* clean_up_date - Cleans up a date string.
+	* username_is_valid - Checks if a string is a valid TikTok username.
 	* link_is_valid - Checks if a link is a valid TikTok video link.
 	* date_is_valid - Checks if a date is in the right format.
 	* comment_is_valid - Checks if a comment is valid for JSON storage.
@@ -280,6 +281,28 @@ def clean_up_date(date: str) -> str:
 	else:
 		return date
 
+def username_is_valid(user: str) -> bool:
+	"""Checks if the given username is valid.
+	
+	Parameters
+	----------
+	user : str
+		The username to validate.
+	
+	Returns
+	-------
+	bool
+		`True` if the username is a valid TikTok username, `False`
+		otherwise.
+	"""
+
+	if not isinstance(user, str):
+		return False
+	if re.compile("[a-z\\d_.]+").fullmatch(user):
+		return True
+	else:
+		return False
+
 def link_is_valid(link: str) -> bool:
 	"""Checks if the given link is valid.
 	
@@ -297,10 +320,8 @@ def link_is_valid(link: str) -> bool:
 
 	if not isinstance(link, str):
 		return False
-	# This could be refined even further in the future.
-	# E.g. I suspect that there can only be 19 numbers in a video ID,
-	# and there are only some characters that are allowed in a username.
-	if re.compile("https://www.tiktok.com/@.*/video/\\d*").fullmatch(link):
+	expression = "https://www.tiktok.com/@[a-z\\d_.]+/video/\\d{19}"
+	if re.compile(expression).fullmatch(link):
 		return True
 	else:
 		return False

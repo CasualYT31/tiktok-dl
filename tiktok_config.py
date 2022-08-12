@@ -46,7 +46,7 @@ Command-Line Options
 --help
 	Prints the module docstring then exits the program.
 --version
-	Prints the version number for this program.
+	Prints the version number for this program, then exits.
 --set username property value
 	Updates the given user's `property` property with the given value.
 	A user's configuration object will be created if it doesn't exist

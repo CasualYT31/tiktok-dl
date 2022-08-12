@@ -39,63 +39,77 @@ Username
 
 Accepted Input
 --------------
-`tiktok-dl` accepts several different types of input. If a parameter is
-given without any of the options specified from down below, the script
-will treat it as input. There is an order of precedence when it comes to
-determining the type of input, i.e. it will see if it is 1 first, and if
-not, 2, etc.
+`tiktok-dl` accepts several different types of input. There is an order
+of precedence when it comes to determining the type of input, i.e. it
+will see if it is 1 first, and if not, 2, etc.
 1. Links.
-	Must begin with `https://` to be recognised.
+	If a link is recognised as a valid TikTok video link, it will be
+	accepted as a single link to download.
 2. Filenames.
-	If the given input is a valid filename, it will attempt to open it
-	and read from it. This program accepts two file formats:
+	If the given input is the name of a file that exists, it will
+	attempt to open it and read from it. This program accepts two file
+	formats:
 	- HTML
 		If the file begins with `<!DOCTYPE html>`, it will be treated as
 		a HTML download of a TikTok page. See the `HTML Input` section
 		for more information.
 	- TXT
 		Otherwise, the file will be treated as a plain text file, where
-		one link should be on one line.
+		one input should be on one line. "Input" can include a link, a
+		username, or even another filename.
 3. Usernames.
-	If the input is not a link or an existing file, the script will
-	assume it's a username. It will use `yt-dlp` to scrape from a user's
-	page the links to all of their videos, and feed them in as input.
+	If the input is a valid TikTok username, it will use either `yt-dlp`
+	or `requests_html` to scrape from that user's page the links to all
+	of their videos, and feed them in as input. The list of input
+	usernames will be written to a file if `tiktok-dl` is configured to
+	do so; please see the `--history` and `--no-history` options.
 	**IMPORTANT: see User Page Scraping section for more information.**
+4. Any other input is considered invalid. It will be reported to the
+	console, and it will be ignored.
 
 Command-Line Options
 --------------------
--h
-	Prints the module's docstring.
--d date
-	Ensures that no video uploaded before the given date is downloaded.
-	If multiple `-d` parameters are specified, the last one provided
-	will be used.
--k
-	By default, any HTML files provided as input are deleted after their
-	links have been scraped, *including* their `_files` folder. Issue
-	this argument to prevent this from happening.
--i link
-	Will ensure that the given link is ignored, i.e. is removed from the
-	list of links to download.
--u username
-	Scrapes the newest ~30 links from the given user directly from
-	TikTok using `requests_html`, and feeds them in as input.
--s [n]
-	Instead of downloading any videos, all of the input links will be
-	evenly divided into `n` groups and written to text files (see `-f`).
-	If no `n` is provided, the user will be prompted to give the value
-	when the script is run. If `0` is provided, the links will be
-	downloaded instead of split.
--f filename
-	Defines the filename used when writing to text files with `-s`. The
-	default is `./list`. So, if `-s 3` is specified, `list0.txt`,
-	`list1.txt` and `list2.txt` will be written to the current working
-	directory (i.e. wherever you ran the script from).
--c filename
+--help
+	Prints the module's docstring then exits.
+--version
+	Prints the version number for this program, then exits.
+--config filename
 	Points to where the configuration script resides. By default, it
 	will look for it in `./config.json`, i.e. in the current working
 	directory. Please read the documentation in `tiktok_config.py` for
 	more information.
+--ignore link
+	Will ensure that the given link is ignored, i.e. is removed from the
+	list of links to download. This will NOT add the link to the
+	configuration file.
+--list filename
+	Instead of downloading any videos, `tiktok-dl` will simply write all
+	of the input links into the specified text file. The file will be
+	overwritten. The number of links will be printed after writing.
+--user-method ytdlp | html
+	Specifies the method via which user pages will be downloaded. By
+	default, `ytdlp` is used. However, the `html` method can be used to
+	scrape the newest ~30 links from the given user directly from
+	TikTok using `requests_html`.
+	**IMPORTANT: see User Page Scraping section for more information.**
+--delete-after input
+	Accepts the given parameter as input like normal. However, if the
+	input is a filename, the file will be deleted after all of the
+	inputted links have been processed.
+--history filename
+	A list of usernames that were input will be generated and will be
+	appended to `./usernames.txt` by default. Use this option to append
+	to a different file.
+--no-history
+	If this option is given, no username history will be recorded to any
+	file.
+--split n
+	This option will split all the input links up as evenly as possible
+	into n groups, and then run n threads, one thread per group of input
+	links, and `tiktok-dl` will then download all of the links in
+	parallel. Unlike usual, no live updates will be printed to the
+	console, and instead a summary of the downloading process will be
+	printed at the end.
 
 User Page Scraping
 ------------------
@@ -105,8 +119,9 @@ TikTok handles requests that `yt-dlp` hasn't been programmed to handle
 yet. I am monitoring the situation over at
 https://github.com/yt-dlp/yt-dlp/issues/3776 and will update this
 project once it starts working again. In the mean time, use other
-methods to scrape from user pages, such as the `-u` option, and by
-providing complete HTML pages as described below.
+methods to scrape from user pages, such as `html`—WHICH WILL BE THE
+DEFAULT WHILST YT-DLP DOESN'T WORK—and by providing complete HTML
+pages as described below.
 
 HTML Input
 ----------
