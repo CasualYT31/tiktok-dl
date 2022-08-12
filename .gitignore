@@ -134,3 +134,6 @@ dmypy.json
 *.json
 *.part
 .vscode/
+*.html
+*.htm
+i_files/

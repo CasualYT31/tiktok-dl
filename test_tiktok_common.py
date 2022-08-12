@@ -287,6 +287,8 @@ class UsernameIsValidTestCase(unittest.TestCase):
 		self.assertTrue(t.username_is_valid("first_last"))
 		self.assertTrue(t.username_is_valid("first_last._."))
 		self.assertTrue(t.username_is_valid("test_link"))
+		self.assertTrue(t.username_is_valid("test"))
+		self.assertTrue(t.username_is_valid("test2"))
 
 class LinkIsValidTestCase(unittest.TestCase):
 	def test_blank_string(self):

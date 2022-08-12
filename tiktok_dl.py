@@ -7,6 +7,7 @@ As a module, this script offers the functionality of the above whilst
 allowing you to write your own scripts that work with tiktok-dl.
 
 This script requires the following modules in order to run:
+- `argparse`
 - `yt-dlp`
 - `requests_html`
 - `numpy`
@@ -90,7 +91,8 @@ Command-Line Options
 	Specifies the method via which user pages will be downloaded. By
 	default, `ytdlp` is used. However, the `html` method can be used to
 	scrape the newest ~30 links from the given user directly from
-	TikTok using `requests_html`.
+	TikTok using `requests_html`. When using the `html` method for the
+	first time, `requests_html` will download Chromium (~137MB).
 	**IMPORTANT: see User Page Scraping section for more information.**
 --delete-after input
 	Accepts the given parameter as input like normal. However, if the
@@ -98,8 +100,8 @@ Command-Line Options
 	inputted links have been processed.
 --history filename
 	A list of usernames that were input will be generated and will be
-	appended to `./usernames.txt` by default. Use this option to append
-	to a different file.
+	written to `./usernames.txt` by default. Use this option to
+	overwrite a different file.
 --no-history
 	If this option is given, no username history will be recorded to any
 	file.
@@ -153,14 +155,61 @@ include original videos of duets, or when `yt-dlp` user page scraping
 
 Exports
 -------
+	* YtDlpLogger - Logger class to redirect `yt-dlp` output.
+	* thread_count - The type of argument that --split is.
 	* argument_parser - Constructs the tiktok-dl argument parser.
+	* scrape_from_user - Scrape links from a TikTok user's page.
+	* scrape_from_file - Processes inputs from files.
+	* process_inputs - Finds all the links in the given list of inputs.
+	* update_history - Updates a username history file with more users.
 """
 
+import os
+import re
+import shutil
+from sys import stdout
+from io import TextIOBase
+from pathlib import Path
 from argparse import ArgumentParser, ArgumentTypeError
-from concurrent.futures import thread
+from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError, ExtractorError
+from requests_html import HTMLSession
+from pyppeteer.errors import TimeoutError
 import tiktok_common as common
 from tiktok_common import UserConfig
 import tiktok_config as t
+
+DEFAULT_USER_METHOD = "html"
+
+class YtDlpLogger:
+	"""Logger used to divert `yt-dlp` output to a given stream."""
+
+	def __init__(self, stream: TextIOBase=stdout):
+		"""Initialises this logger with a stream.
+		
+		Parameters
+		----------
+		stream : io.TextIOBase
+			The stream to print messages to. Defaults to `sys.stdout`.
+			Can be `None`.
+		"""
+
+		self.stream = stream
+
+	def debug(self, msg):
+		if msg.startswith('[debug] '):
+			pass
+		else:
+			self.info(msg)
+
+	def info(self, msg):
+		common.notice(msg, self.stream)
+
+	def warning(self, msg):
+		common.notice(msg, self.stream)
+
+	def error(self, msg):
+		common.notice(msg, self.stream)
 
 def thread_count(value):
     ivalue = int(value)
@@ -189,7 +238,7 @@ def argument_parser() -> ArgumentParser:
 		metavar='LINK')
 	parser.add_argument('-l', '--list', metavar='FILEPATH')
 	parser.add_argument('-u', '--user-method', choices=['ytdlp', 'html'], \
-		default='ytdlp', metavar='METHOD')
+		default=DEFAULT_USER_METHOD, metavar='METHOD')
 	parser.add_argument('-d', '--delete-after', action='append', \
 		metavar='FILE')
 	parser.add_argument('--history', default='./usernames.txt', \
@@ -200,6 +249,209 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('input', nargs='*', metavar='INPUT')
 	return parser
 
+def scrape_from_user(user: str, session: YoutubeDL=None,
+	stream: TextIOBase=stdout) -> set[str]:
+	"""Scrapes links from a user's page.
+
+	Parameters
+	----------
+	user : str
+		The user to scrape from.
+	session : YoutubeDL
+		The `yt-dlp` session to use if the 'ytdlp' method is required.
+		If `None`, the `html` method is used. Defaults to `None`.
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	
+	Returns
+	-------
+	set of str
+		A set of extracted links.
+	"""
+
+	common.notice(f"Scraping from user \"{user}\".")
+	if session is None:
+		# html method
+		html_session = HTMLSession()
+		page = html_session.get(f"https://www.tiktok.com/@{user}")
+		for i in range(1,2):
+			try:
+				page.html.render(wait=1.0, scrolldown=10, sleep=1.0)
+				break
+			except TimeoutError:
+				if i == 1:
+					common.notice(f"Scraping from user \"{user}\" timed out, "
+						"will retry once.", stream)
+				elif i == 2:
+					common.notice(f"Failed to scrape for user \"{user}\".")
+		return set(filter(
+			lambda link : True if link.find("/video/") != -1 else False,
+			page.html.absolute_links))
+	else:
+		# ytdlp method
+		links = set()
+		try:
+			info = session.extract_info(f"https://www.tiktok.com/@{user}",
+				download=False)
+			for entry in info['entries']:
+				links.add("https://www.tiktok.com/"
+					f"{entry['webpage_url_basename']}/video/{entry['id']}")
+		except (DownloadError, ExtractorError):
+			common.notice(f"Failed to scrape for user \"{user}\".")
+		return links
+
+def __process_inputs__(inputs, user_method, stream):
+	"""Internal function: use process_inputs instead!
+
+	Used to forward declare the process_input function so that scrape_from_file
+	can call it.
+	"""
+
+	pass
+__process_inputs = __process_inputs__
+
+def scrape_from_file(path: str, session: YoutubeDL=None,
+	stream: TextIOBase = stdout) -> tuple[set[str],set[str],set[str]]:
+	"""Scrapes inputs from a given file.
+
+	If the given file is determined to be an HTML script, the links will
+	be scraped and returned. Otherwise, the file is treated as a text
+	file, where each line represents one input that is passed to
+	`process_inputs`.
+	
+	Parameters
+	----------
+	path : str
+		Path to the file to read from.
+	session : YoutubeDL
+		The `yt-dlp` session to use if the 'ytdlp' method is required
+		for scraping from user pages. If `None`, the `html` method is
+		used. Defaults to `None`.
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	
+	Returns
+	-------
+	Same as `process_inputs`.
+	"""
+
+	with open(path, encoding="UTF-8") as file:
+		contents = [line.strip() for line in file.readlines()]
+	if len(contents) == 0:
+		return set(), set(), set()
+	elif contents[0] == "<!DOCTYPE html>":
+		links = set()
+		for line in contents:
+			# Most likely a cleaner way of implementing this, e.g. match
+			# against valid links, not just ones with /video/ in them.
+			links_are_at = [m.start() for m in re.finditer("/video/", line)]
+			for i in links_are_at:
+				before = line[:i]
+				after = line[i:]
+				first_half = before[before.rfind("https://"):]
+				second_half = after[:after.find("\"")]
+				link = first_half + second_half
+				if common.link_is_valid(link):
+					links.add(link)
+		return links, set(), set([path])
+	else:
+		# Before passing it to process_inputs, remove any instances of "path"
+		# in the file to prevent RecursionErrors. Also remove blank lines.
+		contents = [line for line in contents \
+			if line != "" and not common.the_same_filepath(path, line)]
+		return __process_inputs(contents, session, stream)
+
+def __process_inputs_internal(inputs, session, stream):
+	links = set()
+	users = set()
+	htmls = set()
+	for input in inputs:
+		if common.link_is_valid(common.clean_up_link(input)):
+			links.add(common.clean_up_link(input))
+		elif Path(input).is_file():
+			(new_links, new_users, new_htmls) = \
+				scrape_from_file(input, session, stream)
+			links = links.union(new_links)
+			users = users.union(new_users)
+			htmls = htmls.union(new_htmls)
+		elif common.username_is_valid(common.clean_up_username(input)):
+			links = links.union(scrape_from_user(input, session, stream))
+			users.add(common.clean_up_username(input))
+		else:
+			common.notice(f"Invalid input: {input}", stream)
+	return (links, users, htmls)
+
+def process_inputs(inputs: list[str], method: str=DEFAULT_USER_METHOD,
+	stream: TextIOBase = stdout) -> tuple[set[str],set[str],set[str]]:
+	"""Scrapes all of the links from a given list of inputs.
+	
+	Parameters
+	----------
+	inputs : list of str
+		List of links, filenames, and usernames.
+	method : str
+		Defines the method used to scrape from user pages. Can be
+		'ytdlp' or 'html'. Defaults to 'html' if the string doesn't
+		equal 'ytdlp'.
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	
+	Returns
+	-------
+	tuple - set of str, set of str, set of str:
+		All of the links that were scraped from the given inputs, and
+		then all of the usernames that were detected in `inputs`
+		directly (i.e. not in links, but in the list, or in non-HTML
+		files). Finally, a set of all the files that were HTML scripts.
+	"""
+
+	if method == 'ytdlp':
+		ydl_opts = {
+			"logger": YtDlpLogger(stream)
+		}
+		with YoutubeDL(ydl_opts) as ydl:
+			return __process_inputs_internal(inputs, ydl, stream)
+	else:
+		return __process_inputs_internal(inputs, None, stream)
+
+def update_history(filepath: str, new_users: set[str],
+	stream: TextIOBase = stdout) -> None:
+	"""Updates a username history file with more users.
+	
+	Parameters
+	----------
+	filepath : str
+		The path leading to the history file to update
+	new_users : set[str]
+		The set of users to add to the file.
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	"""
+
+	# First, load history file and read current [valid] users.
+	history = set()
+	try:
+		with open(filepath, encoding="UTF-8") as history_file:
+			lines = history_file.readlines()
+			for line in lines:
+				user = common.clean_up_username(line)
+				if common.username_is_valid(user):
+					history.add(user)
+	except FileNotFoundError:
+		common.notice(f"Writing to new history file {filepath}.", stream)
+	# Then, inject the new users and write all of it to the file, getting rid
+	# of invalid users in the process.
+	history = history.union(new_users)
+	with open(options.history, mode="w", encoding="UTF-8") as history_file:
+		for user in history:
+			history_file.write(user + "\n")
+
+__process_inputs = process_inputs
+
 if __name__ == "__main__":
 	try:
 		common.check_python_version()
@@ -209,5 +461,51 @@ if __name__ == "__main__":
 			common.print_pages(common.create_pages(__doc__))
 		else:
 			config = t.load_or_create_config(options.config)
+			if options.delete_after is not None:
+				options.input.extend(options.delete_after)
+			(links, users, html_files) = \
+				process_inputs(options.input, options.user_method)
+			if not options.no_history:
+				try:
+					update_history(options.history, users)
+				except (FileNotFoundError, OSError):
+					common.notice("Could not update the username history file "
+						f"\"{options.history}\".")
+					common.notice(f"The provided usernames were {users}.")
+			if options.ignore is not None:
+				for link in options.ignore:
+					try:
+						links.remove(common.clean_up_link(link))
+					except KeyError:
+						pass
+			if options.list is not None:
+				# List instead of download.
+				try:
+					with open(options.list, mode='w', encoding='UTF-8') as txt:
+						for link in links:
+							txt.write(link + '\n')
+				except OSError:
+					msg = f"Failed to write links to \"{options.list}\"."
+					if options.delete_after is not None:
+						msg += " Will not delete any input files."
+					common.notice(msg)
+					raise t.ConfigError()
+			else:
+				# Download!
+				pass
+			if options.delete_after is not None:
+				for delete in options.delete_after:
+					try:
+						os.remove(delete)
+					except (OSError, FileNotFoundError):
+						common.notice(f"Failed to delete file \"{delete}\".")
+					if delete in html_files:
+						# Attempt to delete the _files folder, too.
+						delete_folder = delete[:delete.rfind('.')] + "_files"
+						try:
+							shutil.rmtree(delete_folder)
+						except (OSError, FileNotFoundError):
+							common.notice("Failed to delete HTML files "
+								f"folder \"{delete_folder}\".")
 	except (KeyboardInterrupt, t.ConfigError):
 		common.notice("Exiting...")

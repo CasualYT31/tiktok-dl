@@ -5,6 +5,7 @@ This script requires the following modules in order to run:
 
 Exports
 -------
+	* the_same_filepath - Finds out if two paths point to the same file.
 	* write - Writes a message to a stream, if a stream is given.
 	* notice - Writes a `tiktok-dl` message to the given text stream.
 	* version_string - Returns the current version of the software.
@@ -35,6 +36,28 @@ import copy
 from argparse import ArgumentParser
 from argparse import Namespace
 from xmlrpc.client import boolean
+
+def the_same_filepath(path1: str, path2: str) -> bool:
+	"""Finds out if two paths point to the same file.
+
+	Parameters
+	----------
+	path1 : str
+		The first path.
+	path2 : str
+		The second path.
+	
+	Returns
+	-------
+	bool
+		`True` if both paths point to the same file, `False` if not, or
+		if an exception was thrown.
+	"""
+
+	try:
+		return os.path.samefile(path1, path2)
+	except:
+		return False
 
 def write(msg: str, stream: io.TextIOBase = sys.stdout, end: str = '\n') \
 	-> None:
