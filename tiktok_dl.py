@@ -176,7 +176,7 @@ from yt_dlp.utils import DownloadError, ExtractorError
 from requests_html import HTMLSession
 from pyppeteer.errors import TimeoutError
 import tiktok_common as common
-from tiktok_common import UserConfig
+from tiktok_common import UserConfig, clean_up_link
 import tiktok_config as t
 
 DEFAULT_USER_METHOD = "html"
@@ -210,6 +210,32 @@ class YtDlpLogger:
 
 	def error(self, msg):
 		common.notice(msg, self.stream)
+
+def TiktokDL(stream: TextIOBase=stdout, extra_opts: dict={}) -> YoutubeDL:
+	"""Constructs a `YoutubeDL` object with a set of tiktok-dl options.
+
+	Parameters
+	----------
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	extra_opts : dict
+		More YoutubeDL options to add to the YoutubeDL object. Any
+		values given in this parameter will overwrite the value in this
+		function's options if there are any matching keys. Defaults to
+		no extra options.
+	
+	Returns
+	-------
+	YoutubeDL
+		A `yt-dlp` object.
+	"""
+
+	ydl_opts = {
+		"logger": YtDlpLogger(stream)
+	}
+	ydl_opts.update(extra_opts)
+	return YoutubeDL(ydl_opts)
 
 def thread_count(value):
     ivalue = int(value)
@@ -409,10 +435,7 @@ def process_inputs(inputs: list[str], method: str=DEFAULT_USER_METHOD,
 	"""
 
 	if method == 'ytdlp':
-		ydl_opts = {
-			"logger": YtDlpLogger(stream)
-		}
-		with YoutubeDL(ydl_opts) as ydl:
+		with TiktokDL(stream) as ydl:
 			return __process_inputs_internal(inputs, ydl, stream)
 	else:
 		return __process_inputs_internal(inputs, None, stream)
@@ -451,6 +474,89 @@ def update_history(filepath: str, new_users: set[str],
 			history_file.write(user + "\n")
 
 __process_inputs = process_inputs
+
+def go_into_user_folder(user: str, stream: TextIOBase=stdout) -> bool:
+	"""Creates a new user folder if required, then `cd`s into it."""
+
+	if not os.path.isdir(user):
+		try:
+			os.mkdir("./" + user)
+		except OSError:
+			common.notice(f"Could not create new user folder \"{user}\": "
+				"downloading into root folder instead.", stream)
+			return False
+	os.chdir("./" + user)
+	return True
+
+def download_st(links: set[str], folder: os.path=".",
+	stream: TextIOBase=stdout):
+	"""Downloads a set of links into a given folder.
+	
+	Note that new folders will be created for each user within the given
+	folder.
+	
+	Parameters
+	----------
+	links : set of str
+		The set of links to download.
+	folder : os.path
+		The folder to download videos into.
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	"""
+
+	old_cwd = os.getcwd()
+	try:
+		with TiktokDL(stream) as ydl:
+			for (i, link) in enumerate(links):
+				link = common.clean_up_link(link)
+				if common.link_is_valid(link):
+					user = common.extract_username_from_link(link)
+					# Username will be cleaned up once I make it a class.
+					# Right now, I know it should be fine to just use it
+					# straight away, but it's not the best code.
+					go_back_to_root = go_into_user_folder(user, stream)
+					common.notice(f"({i+1}/{len(links)}) Downloading {link}.",
+						stream)
+					try:
+						ydl.download(link)
+					except (DownloadError, ExtractorError):
+						pass
+					finally:
+						if go_back_to_root:
+							os.chdir("./..")
+				else:
+					common.notice(f"({i+1}/{len(links)}) Link {link} is "
+						"invalid!", stream)
+	except Exception as err:
+		# Re-raise all exceptions.
+		raise err
+	finally:
+		# Always make sure to revert back to the old CWD.
+		os.chdir(old_cwd)
+
+def download_mt(links: set[str], folder: os.path=".", threads: int=1,
+	stream: TextIOBase = stdout):
+	"""Downloads a set of links into a given folder.
+	
+	Note that new folders will be created for each user within the given
+	folder.
+	
+	Parameters
+	----------
+	links : set of str
+		The set of links to download.
+	folder : os.path
+		The folder to download videos into.
+	threads : int
+		The number of threads to use. Defaults to 1.
+	stream : io.TextIOBase
+		The stream to print messages to. Defaults to `sys.stdout`. Can
+		be `None`.
+	"""
+
+	pass
 
 if __name__ == "__main__":
 	try:
