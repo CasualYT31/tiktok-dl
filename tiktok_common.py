@@ -27,15 +27,16 @@ Exports
 	* UserConfig - Class representing a set of user configurations.
 """
 
+from dataclasses import dataclass
 import os
 import sys
 import io
 import json
 import re
 import copy
+from enum import Enum, unique
 from argparse import ArgumentParser
 from argparse import Namespace
-from xmlrpc.client import boolean
 
 def the_same_filepath(path1: str, path2: str) -> bool:
 	"""Finds out if two paths point to the same file.
@@ -224,194 +225,165 @@ def print_pages(pages: list[str]):
 		if i < len(pages) - 1:
 			print()
 
-def clean_up_username(username: str) -> str:
-	"""Cleans up a username, ready for processing.
-	
-	Parameters
-	----------
-	username : str
-		The username to clean up.
-	
-	Returns
-	-------
-	str
-		The cleaned up username.
-	"""
+@dataclass(frozen=True)
+class Username:
+	"""Represents a TikTok username."""
 
-	if isinstance(username, str):
-		return username.strip().lower()
-	else:
-		return username
+	def __init__(self, user: str):
+		"""Assigns the username to store in this instance.
+		
+		Automatically cleans up the input and stores it within the
+		`name` property.
+		
+		Parameters
+		----------
+		user : str
+			The username to store.
+		"""
+		
+		object.__setattr__(self, "name", user.strip().lower())
+	
+	def __str__(self) -> str:
+		"""Returns the username."""
 
-def clean_up_property_name(property: str) -> str:
-	"""Cleans up a property name, ready for processing.
+		return self.name
 	
-	Parameters
-	----------
-	property : str
-		The property name to clean up.
-	
-	Returns
-	-------
-	str
-		The cleaned up property name.
-	"""
+	def __repr__(self) -> str:
+		return self.__str__()
 
-	if isinstance(property, str):
-		return property.strip().lower()
-	else:
-		return property
+	def __eq__(self, other) -> bool:
+		if isinstance(other, Username):
+			return self.name == other.name
+		elif isinstance(other, str):
+			return self.name == other
 
-def clean_up_link(link: str) -> str:
-	"""Cleans up a link, ready for processing.
-	
-	Parameters
-	----------
-	link : str
-		The link to clean up.
-	
-	Returns
-	-------
-	str
-		The cleaned up link.
-	"""
+	def is_valid(self) -> bool:
+		"""Determines if a valid username is stored.
+		
+		Returns
+		-------
+		bool
+			`True` if there is at least one lower-case letter, number,
+			_ or . in the username, `False` otherwise.
+		"""
+		
+		if re.compile("[a-z\\d_.]+").fullmatch(self.name):
+			return True
+		else:
+			return False
 
-	if not isinstance(link, str):
-		return link
-	link = link.strip().lower()
-	if link.find('?') >= 0:
-		link = link[:link.find('?')]
-	if link != "" and link[-1] == '/':
-		link = link[:-1]
-	return link
+@dataclass(frozen=True)
+class Link:
+	"""Represents a TikTok video link."""
 
-def clean_up_date(date: str) -> str:
-	"""Cleans up a date, ready for processing.
+	def __init__(self, link: str):
+		"""Assigns the link to store in this instance.
+		
+		Automatically cleans up the input and stores it within the
+		`link` property. If the link is valid, the username will also be
+		extracted and stored in the `user` property.
+		
+		Parameters
+		----------
+		link : str
+			The link to store. If a non-string, a blank link is stored.
+		"""
+		
+		link = link.strip().lower()
+		if link.find('?') >= 0:
+			link = link[:link.find('?')]
+		if link != "" and link[-1] == '/':
+			link = link[:-1]
+		object.__setattr__(self, "link", link)
+		if self.is_valid():
+			user = link[link.find('@') + 1:]
+			object.__setattr__(self, "user", Username(user[:user.find('/')]))
+		else:
+			object.__setattr__(self, "user", Username(""))
 	
-	Parameters
-	----------
-	date : str
-		The date to clean up.
+	def __str__(self) -> str:
+		"""Returns the link."""
+		
+		return self.link
 	
-	Returns
-	-------
-	str
-		The cleaned up date string.
-	"""
+	def __repr__(self) -> str:
+		return self.user + " in " + self.link
 
-	if isinstance(date, str):
-		return date.strip()
-	else:
-		return date
+	def __eq__(self, other) -> bool:
+		if isinstance(other, Link):
+			return self.link == other.link
+		elif isinstance(other, str):
+			return self.link == other
 
-def username_is_valid(user: str) -> bool:
-	"""Checks if the given username is valid.
-	
-	Parameters
-	----------
-	user : str
-		The username to validate.
-	
-	Returns
-	-------
-	bool
-		`True` if the username is a valid TikTok username, `False`
-		otherwise.
-	"""
+	def is_valid(self) -> bool:
+		"""Determines if a valid link is stored.
+		
+		Returns
+		-------
+		bool
+			`True` if a plain TikTok video link is stored, `False`
+			otherwise.
+		"""
+		
+		expression = "https://www.tiktok.com/@[a-z\\d_.]+/video/\\d{19}"
+		if re.compile(expression).fullmatch(self.link):
+			return True
+		else:
+			return False
 
-	if not isinstance(user, str):
-		return False
-	if re.compile("[a-z\\d_.]+").fullmatch(user):
-		return True
-	else:
-		return False
+@dataclass(frozen=True)
+class Date:
+	"""Represents a `yt-dlp` date string."""
 
-def link_is_valid(link: str) -> bool:
-	"""Checks if the given link is valid.
-	
-	Parameters
-	----------
-	link : str
-		The link to validate.
-	
-	Returns
-	-------
-	bool
-		`True` if the link is a valid TikTok video link, `False`
-		otherwise.
-	"""
+	def __init__(self, date: str):
+		"""Assigns the date to store in this instance.
+		
+		Automatically cleans up the input and stores it within the
+		`date` property.
+		
+		Parameters
+		----------
+		date : str
+			The date to store.
+		"""
 
-	if not isinstance(link, str):
-		return False
-	expression = "https://www.tiktok.com/@[a-z\\d_.]+/video/\\d{19}"
-	if re.compile(expression).fullmatch(link):
-		return True
-	else:
-		return False
+		object.__setattr__(self, "date", date.strip())
+	
+	def __str__(self) -> str:
+		"""Returns the date."""
+		
+		return self.date
+	
+	def __repr__(self) -> str:
+		return self.__str__()
 
-def date_is_valid(date: str) -> bool:
-	"""Checks `date` to see if it is of the correct format.
+	def __eq__(self, other) -> bool:
+		if isinstance(other, Date):
+			return self.date == other.date
+		elif isinstance(other, str):
+			return self.date == other
 	
-	Parameters
-	----------
-	date : str
-		The date to check.
-	
-	Returns
-	-------
-	bool
-		`True` if the date is valid, `False` otherwise.
-	"""
-	
-	if not isinstance(date, str):
-		return False
-	if re.compile("\\d{8}").fullmatch(date):
-		return True
-	else:
-		return False
+	def is_valid(self) -> bool:
+		"""Determines if a valid date is stored.
+		
+		Returns
+		-------
+		bool
+			`True` if a YYYYMMDD date is stored, `False` otherwise.
+		"""
 
-def comment_is_valid(comment: str) -> bool:
-	"""Checks `comment` to see if it is of the correct format.
-	
-	Parameters
-	----------
-	comment : str
-		The comment to check.
-	
-	Returns
-	-------
-	bool
-		`True` if the comment is valid, `False` otherwise.
-	"""
-	
-	return isinstance(comment, str)
+		if re.compile("\\d{8}").fullmatch(self.date):
+			return True
+		else:
+			return False
 
-def extract_username_from_link(link: str) -> str:
-	"""Extracts the user from a TikTok video link.
+@unique
+class Property(Enum):
+	"""Represents a `tiktok-config` property."""
 	
-	This function cleans up the username and link.
-
-	Parameters
-	----------
-	link : str
-		The TikTok video link to extract from.
-	
-	Returns
-	-------
-	The username.
-
-	Raises
-	------
-	ValueError
-		When the given link wasn't a valid TikTok video link.
-	"""
-
-	link = clean_up_link(link)
-	if (link_is_valid(link)):
-		username = link[link.find('@') + 1:]
-		return clean_up_username(username[:username.find('/')])
-	else:
-		raise ValueError()
+	NOT_BEFORE = "notbefore"
+	COMMENT = "comment"
+	IGNORE = "ignore"
 
 class IgnoreError(Exception):
 	"""Raised when "ignore" was used with `UserConfig.set()`."""
@@ -427,6 +399,9 @@ class UserConfig:
 	without relying directly on the way the configurations are
 	formatted or stored. It will also perform all error handling for
 	you (though you should still catch any exceptions that are raised).
+
+	Note that if a string is given for a username, link, or date, it
+	will be automatically converted into the proper type automatically.
 	"""
 
 	def __init__(self):
@@ -436,12 +411,12 @@ class UserConfig:
 	
 	# "Public" methods page 1.
 
-	def user_is_configured(self, user: str) -> bool:
+	def user_is_configured(self, user: Username) -> bool:
 		"""Sees if a user has a configuration object.
 		
 		Parameters
 		----------
-		user : str
+		user : Username
 			The user to query.
 		
 		Returns
@@ -451,25 +426,33 @@ class UserConfig:
 			`False` if not.
 		"""
 
-		return clean_up_username(user) in self.config
+		if isinstance(user, str):
+			user = Username(user)
+		return user in self.config
 	
 	# Helper methods. Avoid calling these from outside of the class.
 
-	def __create_new_user(self, config: dict, user: str) -> None:
+	def __create_new_user(self, config: dict, user: Username) -> None:
 		"""Creates a new user object for a given configuration.
 
 		Parameters
 		----------
 		config : dict
 			The configuration object to change.
-		user : str
+		user : Username
 			The name of the user.
+		
+		Raises
+		------
+		KeyError
+			If the given username was invalid.
 		"""
 
-		user = clean_up_username(user)
+		if not user.is_valid():
+			raise KeyError()
 		config[user] = {'notbefore': "20000101", 'ignore': [], 'comment': ""}
 	
-	def __set_property(self, user: str, property: str, value) -> None:
+	def __set_property(self, user: Username, property: Property, value) -> None:
 		"""Sets a property in a user's configuration object.
 		
 		Creates the user's configuration object if it didn't already
@@ -477,28 +460,26 @@ class UserConfig:
 
 		Parameters
 		----------
-		user : str
+		user : Username
 			The name of the user.
-		property : str
+		property : Property
 			The name of the property to update.
 		value
 			The value to set to the property.
 		"""
 
-		user = clean_up_username(user)
-		property = clean_up_property_name(property)
 		if not self.user_is_configured(user):
 			self.__create_new_user(self.config, user)
 		self.config[user][property] = value
 	
-	def __get_property(self, user: str, property: str):
+	def __get_property(self, user: Username, property: Property):
 		"""Gets a property from a user's configuration object.
 
 		Parameters
 		----------
-		user : str
+		user : Username
 			The name of the user.
-		property : str
+		property : Property
 			The name of the property to get.
 
 		Returns
@@ -513,8 +494,6 @@ class UserConfig:
 			If the given property is not recognised by tiktok-dl.
 		"""
 
-		user = clean_up_username(user)
-		property = clean_up_property_name(property)
 		if user in self.config:
 			if property in self.config[user]:
 				return self.config[user][property]
@@ -558,24 +537,22 @@ class UserConfig:
 		# Check new_config before setting it to self.config
 		config = {}
 		for key, value in new_config.items():
-			new_key = clean_up_username(key)
+			new_key = Username(key)
 			if new_key != key and new_key in new_config:
 				# Skip "AAA" (see doc comment)
 				continue
 			self.__create_new_user(config, new_key)
-			if date_is_valid(value["notbefore"]):
-				config[new_key]["notbefore"] = value["notbefore"]
+			date = Date(value[Property.NOT_BEFORE.value])
+			if date.is_valid():
+				config[new_key][Property.NOT_BEFORE.value] = date
 			else:
 				raise ValueError()
-			if comment_is_valid(value["comment"]):
-				config[new_key]["comment"] = value["comment"]
-			else:
-				raise ValueError()
-			if isinstance(value["ignore"], list) and \
-				all([link_is_valid(link) for link in value["ignore"]]):
-				config[new_key]["ignore"] = value["ignore"]
-			else:
-				raise ValueError()
+			config[new_key][Property.COMMENT.value] = \
+				value[Property.COMMENT.value]
+			for link in value[Property.IGNORE.value]:
+				new_link = Link(link)
+				if new_link.is_valid():
+					config[new_key][Property.IGNORE.value].append(new_link)
 		self.config = config
 	
 	def save_config(self, filepath: os.path) -> None:
@@ -594,7 +571,7 @@ class UserConfig:
 		with open(filepath, mode="w", encoding="UTF-8") as script:
 			json.dump(self.config, script)
 
-	def get_not_before(self, user: str) -> str:
+	def get_not_before(self, user: Username) -> Date:
 		"""Get a user's "notbefore" property.
 
 		This property tells tiktok-dl not to download videos uploaded by
@@ -603,12 +580,12 @@ class UserConfig:
 
 		Parameters
 		----------
-		user : str
+		user : Username
 			The user to get the "notbefore" property of.
 		
 		Returns
 		-------
-		str
+		Date
 			The date in `YYYYMMDD` format if the property is set, or a
 			blank string if the property is not set.
 		
@@ -618,9 +595,11 @@ class UserConfig:
 			If the given user does not have a configuration object.
 		"""
 		
-		return self.__get_property(user, "notbefore")
+		if isinstance(user, str):
+			user = Username(user)
+		return self.__get_property(user, Property.NOT_BEFORE.value)
 	
-	def set_not_before(self, user: str, date: str) -> None:
+	def set_not_before(self, user: Username, date: Date) -> None:
 		"""Set a user's "notbefore" property.
 
 		If the given user doesn't currently exist in the configuration,
@@ -628,9 +607,9 @@ class UserConfig:
 		
 		Parameters
 		----------
-		user : str
+		user : Username
 			The user to set the "notbefore" property of.
-		date : str
+		date : Date
 			The date in `YYYYMMDD` format.
 		
 		Raises
@@ -639,12 +618,15 @@ class UserConfig:
 			If the given date string was not in the correct format.
 		"""
 		
-		date = clean_up_date(date)
-		if not date_is_valid(date):
+		if isinstance(user, str):
+			user = Username(user)
+		if isinstance(date, str):
+			date = Date(date)
+		if not date.is_valid():
 			raise ValueError()
-		self.__set_property(user, "notbefore", date)
+		self.__set_property(user, Property.NOT_BEFORE.value, date)
 
-	def get_comment(self, user: str) -> str:
+	def get_comment(self, user: Username) -> str:
 		"""Get a user's "comment" property.
 
 		This property is ignored by `tiktok-dl` and is only seen by the
@@ -652,7 +634,7 @@ class UserConfig:
 
 		Parameters
 		----------
-		user : str
+		user : Username
 			The user to get the "comment" property of.
 		
 		Returns
@@ -667,9 +649,11 @@ class UserConfig:
 			If the given user does not have a configuration object.
 		"""
 		
-		return self.__get_property(user, "comment")
+		if isinstance(user, str):
+			user = Username(user)
+		return self.__get_property(user, Property.COMMENT.value)
 	
-	def set_comment(self, user: str, comment: str) -> None:
+	def set_comment(self, user: Username, comment: str) -> None:
 		"""Set a user's "comment" property.
 
 		If the given user doesn't currently exist in the configuration,
@@ -677,7 +661,7 @@ class UserConfig:
 		
 		Parameters
 		----------
-		user : str
+		user : Username
 			The user to set the "comment" property of.
 		comment : str
 			The comment.
@@ -688,25 +672,25 @@ class UserConfig:
 			If the given comment was not a string.
 		"""
 		
-		if not comment_is_valid(comment):
-			raise ValueError()
-		self.__set_property(user, "comment", comment)
+		if isinstance(user, str):
+			user = Username(user)
+		self.__set_property(user, Property.COMMENT.value, comment)
 
-	def set(self, property: str, user: str, value) -> str:
+	def set(self, property: Property, user: Username, value) -> Username:
 		"""Sets a property for a given user.
 		
 		Parameters
 		----------
-		property : str
+		property : Property
 			The string name for the property.
-		user : str
+		user : Username
 			The name of the user to update.
 		value
 			The value to assign to the property.
 		
 		Returns
 		-------
-		str
+		Username
 			If a new user object was created, the name of the user is
 			returned. A blank string otherwise.
 		
@@ -720,34 +704,37 @@ class UserConfig:
 		ValueError
 			If the given value wasn't of the correct format for the
 			property.
+		KeyError
+			If the given username was invalid.
 		"""
 
+		if isinstance(user, str):
+			user = Username(user)
 		ret = not self.user_is_configured(user)
-		property = clean_up_property_name(property)
-		if property == "notbefore":
+		if property == Property.NOT_BEFORE.value:
 			self.set_not_before(user, value)
-		elif property == "comment":
+		elif property == Property.COMMENT.value:
 			self.set_comment(user, value)
-		elif property == "ignore":
+		elif property == Property.IGNORE.value:
 			raise IgnoreError()
 		else:
 			raise AttributeError()
 		if ret:
-			return clean_up_username(user)
+			return user
 		else:
-			return ""
+			return Username("")
 
-	def get_ignore_links(self, user: str) -> list[str]:
+	def get_ignore_links(self, user: Username) -> list[Link]:
 		"""Copies a user's list of ignored links.
 		
 		Parameters
 		----------
-		user : str
+		user : Username
 			The user to get the "ignore" property of.
 		
 		Returns
 		-------
-		list[str]
+		list[Link]
 			A deep copied list of ignored links.
 		
 		Raises
@@ -756,13 +743,14 @@ class UserConfig:
 			If the given user does not have a configuration object.
 		"""
 
-		user = clean_up_username(user)
+		if isinstance(user, str):
+			user = Username(user)
 		if self.user_is_configured(user):
-			return copy.deepcopy(self.config[user]["ignore"])
+			return [Link(link) for link in self.config[user][Property.IGNORE.value]]
 		else:
 			raise KeyError()
 
-	def toggle_ignore_link(self, link: str) -> bool:
+	def toggle_ignore_link(self, link: Link) -> bool:
 		"""Either adds or removes a link from the correct ignore list.
 		
 		Each user can have a list of links that are to be ignored when
@@ -777,7 +765,7 @@ class UserConfig:
 
 		Parameters
 		----------
-		link : str
+		link : Link
 			The link to add/delete.
 		
 		Returns
@@ -792,23 +780,23 @@ class UserConfig:
 			If the given link was invalid.
 		"""
 		
-		link = clean_up_link(link)
-		user = extract_username_from_link(link)
-		if user not in self.config:
-			self.__create_new_user(self.config, user)
-		if link in self.config[user]["ignore"]:
-			self.config[user]["ignore"].remove(link)
+		if isinstance(link, str):
+			link = Link(link)
+		if link.user not in self.config:
+			self.__create_new_user(self.config, link.user)
+		if link in self.config[link.user][Property.IGNORE.value]:
+			self.config[link.user][Property.IGNORE.value].remove(link)
 			return False
 		else:
-			self.config[user]["ignore"].append(link)
+			self.config[link.user][Property.IGNORE.value].append(link)
 			return True
 	
-	def delete_user(self, user: str) -> None:
+	def delete_user(self, user: Username) -> None:
 		"""Deletes a user configuration object.
 		
 		Parameters
 		----------
-		user : str
+		user : Username
 			The name of the user to delete. Is cleaned up inside the
 			method.
 		
@@ -818,11 +806,12 @@ class UserConfig:
 			If the given user did not exist.
 		"""
 
-		user = clean_up_username(user)
+		if isinstance(user, str):
+			user = Username(user)
 		if self.config.pop(user, None) == None:
 			raise KeyError()
 	
-	def list_users(self, filter_re: str=".*") -> list[str]:
+	def list_users(self, filter_re: str=".*") -> list[Username]:
 		"""Lists the users configured in this object.
 		
 		Parameters
@@ -834,7 +823,7 @@ class UserConfig:
 		
 		Returns
 		-------
-		list[str]
+		list[Username]
 			An ascending sorted list of usernames.
 		
 		Raises
@@ -844,16 +833,16 @@ class UserConfig:
 		"""
 
 		result = list(filter(re.compile(filter_re).fullmatch,
-			list(self.config.keys())))
+			[key.name for key in self.config.keys()]))
 		result.sort()
 		return result
 	
-	def user_to_string(self, user: str) -> str:
+	def user_to_string(self, user: Username) -> str:
 		"""Creates a readable string representation of a user's config.
 		
 		Parameters
 		----------
-		user : str
+		user : Username
 			The name of the user.
 		
 		Return
@@ -867,8 +856,10 @@ class UserConfig:
 			If the given user didn't exist at the time of calling.
 		"""
 
+		if isinstance(user, str):
+			user = Username(user)
 		if self.user_is_configured(user):
-			result = f"~~~{clean_up_username(user)}~~~\n"
+			result = f"~~~{user}~~~\n"
 			result += f"No videos from before: {self.get_not_before(user)}.\n"
 			result += f"Comment: {self.get_comment(user)}\n"
 			result += f"Ignoring {len(self.get_ignore_links(user))} links.\n"

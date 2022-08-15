@@ -236,125 +236,84 @@ class PrintPagesTestCase(unittest.TestCase):
 			"2\nPage 2 out of 5...\n3\nPage 3 out of 5...\n" \
 			"4\nPage 4 out of 5...\n5\nPage 5 out of 5...")
 
-class CleanUpUsernameTestCase(unittest.TestCase):
+class UsernameTestCase(unittest.TestCase):
 	def test_blank_string(self):
-		self.assertEquals(t.clean_up_username(""), "")
+		self.assertEqual(t.Username(""), "")
+		self.assertFalse(t.Username("").is_valid())
 	
 	def test_correct_string(self):
-		self.assertEquals(t.clean_up_username("abcdefg__hi."), "abcdefg__hi.")
+		self.assertEqual(t.Username("abcdefg__hi."), "abcdefg__hi.")
 	
 	def test_incorrect_string(self):
-		self.assertEquals(t.clean_up_username(" ABCdEFg._.5\t \t"), \
-			"abcdefg._.5")
+		self.assertEqual(t.Username(" ABCdEFg._.5\t \t"), "abcdefg._.5")
 
-class CleanUpPropertyNameTestCase(unittest.TestCase):
-	def test_blank_string(self):
-		self.assertEquals(t.clean_up_property_name(""), "")
-	
-	def test_correct_string(self):
-		self.assertEquals(t.clean_up_property_name("ignore"), "ignore")
-	
-	def test_incorrect_string(self):
-		self.assertEquals(t.clean_up_property_name("\t\nBIGPROPERTY   "), \
-			"bigproperty")
-
-class CleanUpLinkTestCase(unittest.TestCase):
-	def test_blank_string(self):
-		self.assertEquals(t.clean_up_link(""), "")
-	
-	def test_correct_string(self):
-		self.assertEquals(t.clean_up_link(TEST_LINK), TEST_LINK)
-	
-	def test_incorrect_string(self):
-		self.assertEquals(t.clean_up_link("\r\n" + TEST_LINK + "/   "), \
-			TEST_LINK)
-
-	def test_variables_string(self):
-		self.assertEquals(t.clean_up_link(TEST_VAR_LINK), TEST_LINK)
-
-class UsernameIsValidTestCase(unittest.TestCase):
-	def test_blank_string(self):
-		self.assertFalse(t.username_is_valid(""))
-	
 	def test_invalid_names(self):
-		self.assertFalse(t.username_is_valid(";hi"))
-		self.assertFalse(t.username_is_valid("|\nhi"))
-		self.assertFalse(t.username_is_valid(TEST_LINK))
-		self.assertFalse(t.username_is_valid("TEST_LINK"))
+		self.assertFalse(t.Username(";hi").is_valid())
+		self.assertFalse(t.Username("|\nhi").is_valid())
+		self.assertFalse(t.Username(TEST_LINK).is_valid())
+		self.assertFalse(t.Username("TEST_LINK#").is_valid())
 	
 	def test_valid_names(self):
-		self.assertTrue(t.username_is_valid("a"))
-		self.assertTrue(t.username_is_valid("first_last"))
-		self.assertTrue(t.username_is_valid("first_last._."))
-		self.assertTrue(t.username_is_valid("test_link"))
-		self.assertTrue(t.username_is_valid("test"))
-		self.assertTrue(t.username_is_valid("test2"))
+		self.assertTrue(t.Username("a").is_valid())
+		self.assertTrue(t.Username("first_last").is_valid())
+		self.assertTrue(t.Username("first_last._.").is_valid())
+		self.assertTrue(t.Username("test_link").is_valid())
+		self.assertTrue(t.Username("test").is_valid())
+		self.assertTrue(t.Username("test2").is_valid())
 
-class LinkIsValidTestCase(unittest.TestCase):
+class LinkTestCase(unittest.TestCase):
 	def test_blank_string(self):
-		self.assertFalse(t.link_is_valid(""))
+		self.assertEqual(t.Link(""), "")
+		self.assertFalse(t.Link("").is_valid())
+		self.assertFalse(t.Link("").user.is_valid())
+	
+	def test_correct_string(self):
+		self.assertEqual(t.Link(TEST_LINK), TEST_LINK)
+	
+	def test_incorrect_string(self):
+		self.assertEqual(t.Link("\r\n" + TEST_LINK + "/   "), TEST_LINK)
+
+	def test_variables_string(self):
+		self.assertEqual(t.Link(TEST_VAR_LINK), TEST_LINK)
 	
 	def test_invalid_links(self):
-		self.assertFalse(t.link_is_valid(None))
-		self.assertFalse(t.link_is_valid(89))
-		self.assertFalse(t.link_is_valid([TEST_LINK]))
-		self.assertFalse(t.link_is_valid(
-			"https://www.tiktok.com/@/video/1234567890123456789"))
-		self.assertFalse(t.link_is_valid(
-			"https://www.tiktok.com//video/1234567890123456789"))
-		self.assertFalse(t.link_is_valid(
-			"https://www.tiktok.com/@a/video/123456789012345678"))
-		self.assertFalse(t.link_is_valid(
-			"https://www.tiktok.com/@a/video/12345678901234567890"))
+		self.assertFalse(t.Link(
+			"https://www.tiktok.com/@/video/1234567890123456789").is_valid())
+		self.assertFalse(t.Link(
+			"https://www.tiktok.com//video/1234567890123456789").is_valid())
+		self.assertFalse(t.Link(
+			"https://www.tiktok.com/@a/video/123456789012345678").is_valid())
+		self.assertFalse(t.Link(
+			"https://www.tiktok.com/@a/video/12345678901234567890").is_valid())
 	
 	def test_valid_link(self):
-		self.assertTrue(t.link_is_valid(TEST_LINK))
-		self.assertTrue(t.link_is_valid(
-			"https://www.tiktok.com/@a/video/1234567890123456789"))
+		self.assertTrue(t.Link(TEST_LINK).is_valid())
+		self.assertTrue(t.Link(
+			"https://www.tiktok.com/@a/video/1234567890123456789").is_valid())
+		self.assertTrue(t.Link(TEST_VAR_LINK).is_valid())
 	
-	def test_variables_link(self):
-		self.assertFalse(t.link_is_valid(TEST_VAR_LINK))
+	def test_invalid_link(self):
+		self.assertFalse(t.Link(
+			"https://www.tiktok.com/bts_official_bighit/video/927231434").user
+			.is_valid())
+	
+	def test_valid_links(self):
+		self.assertEqual(t.Link(TEST_LINK).user, "user1")
+		self.assertEqual(t.Link(TEST_VAR_LINK).user, "user1")
 
 class DateIsValidTestCase(unittest.TestCase):
 	def test_blank_string(self):
-		self.assertFalse(t.date_is_valid(""))
+		self.assertFalse(t.Date("").is_valid())
 	
-	def test_invalid_objects(self):
-		self.assertFalse(t.date_is_valid(None))
-		self.assertFalse(t.date_is_valid(89))
-		self.assertFalse(t.date_is_valid([TEST_LINK]))
+	def test_invalid_datess(self):
+		self.assertFalse(t.Date("202208105").is_valid())
+		self.assertFalse(t.Date("9999999").is_valid())
+		self.assertFalse(t.Date("strinG ").is_valid())
 	
 	def test_valid_dates(self):
-		self.assertTrue(t.date_is_valid("20220810"))
-		self.assertTrue(t.date_is_valid("99999999"))
-	
-class CommentIsValidTestCase(unittest.TestCase):
-	def test_blank_string(self):
-		self.assertTrue(t.comment_is_valid(""))
-	
-	def test_invalid_objects(self):
-		self.assertFalse(t.comment_is_valid(None))
-		self.assertFalse(t.comment_is_valid(89))
-		self.assertFalse(t.comment_is_valid([TEST_LINK]))
-	
-	def test_valid_comments(self):
-		self.assertTrue(t.comment_is_valid("20220810"))
-		self.assertTrue(t.comment_is_valid(TEST_LINK))
-		self.assertTrue(t.comment_is_valid("Hello,\nworld!"))
-
-class ExtractUsernameFromLinkTestCase(unittest.TestCase):
-	def test_blank_string(self):
-		with self.assertRaises(ValueError):
-			t.extract_username_from_link("")
-	
-	def test_invalid_link(self):
-		with self.assertRaises(ValueError):
-			t.extract_username_from_link( \
-				"https://www.tiktok.com/bts_official_bighit/video/927231434")
-	
-	def test_valid_links(self):
-		self.assertTrue(t.extract_username_from_link(TEST_LINK), "user1")
-		self.assertTrue(t.extract_username_from_link(TEST_VAR_LINK), "user1")
+		self.assertTrue(t.Date("20220810").is_valid())
+		self.assertTrue(t.Date("99999999").is_valid())
+		self.assertTrue(t.Date("\t99999999  ").is_valid())
 
 if __name__ == "__main__":
 	unittest.main()
