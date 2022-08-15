@@ -167,6 +167,8 @@ Exports
 import os
 import re
 import shutil
+from threading import Thread
+from copy import deepcopy
 from sys import stdout
 from io import TextIOBase
 from pathlib import Path
@@ -175,6 +177,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
 from requests_html import HTMLSession
 from pyppeteer.errors import TimeoutError
+from numpy import array_split
 import tiktok_common as common
 from tiktok_common import UserConfig, clean_up_link
 import tiktok_config as t
@@ -488,7 +491,7 @@ def go_into_user_folder(user: str, stream: TextIOBase=stdout) -> bool:
 	os.chdir("./" + user)
 	return True
 
-def download_st(links: set[str], folder: os.path=".",
+def download_st(original_links: set[str], folder: os.path=".",
 	stream: TextIOBase=stdout):
 	"""Downloads a set of links into a given folder.
 	
@@ -504,31 +507,47 @@ def download_st(links: set[str], folder: os.path=".",
 	stream : io.TextIOBase
 		The stream to print messages to. Defaults to `sys.stdout`. Can
 		be `None`.
+	
+	Returns
+	-------
+	tuple : list[str]
+		1. A list of links that failed to download.
 	"""
 
+	links = deepcopy(original_links)
 	old_cwd = os.getcwd()
 	try:
 		with TiktokDL(stream) as ydl:
-			for (i, link) in enumerate(links):
-				link = common.clean_up_link(link)
-				if common.link_is_valid(link):
-					user = common.extract_username_from_link(link)
-					# Username will be cleaned up once I make it a class.
-					# Right now, I know it should be fine to just use it
-					# straight away, but it's not the best code.
-					go_back_to_root = go_into_user_folder(user, stream)
-					common.notice(f"({i+1}/{len(links)}) Downloading {link}.",
-						stream)
-					try:
-						ydl.download(link)
-					except (DownloadError, ExtractorError):
-						pass
-					finally:
-						if go_back_to_root:
-							os.chdir("./..")
+			reattempt_bad_links = True
+			while len(links) > 0:
+				bad_links = set()
+				for (i, link) in enumerate(links):
+					link = common.clean_up_link(link)
+					if common.link_is_valid(link):
+						user = common.extract_username_from_link(link)
+						# Username will be cleaned up once I make it a class.
+						# Right now, I know it should be fine to just use it
+						# straight away, but it's not the best code.
+						go_back_to_root = go_into_user_folder(user, stream)
+						common.notice(f"({i+1}/{len(links)}) Downloading {link}.",
+							stream)
+						try:
+							ydl.download(link)
+						except (DownloadError, ExtractorError):
+							bad_links.add(link)
+						finally:
+							if go_back_to_root:
+								os.chdir("./..")
+					else:
+						common.notice(f"({i+1}/{len(links)}) Link {link} is "
+							"invalid!", stream)
+				links = set()
+				links.update(bad_links)
+				if reattempt_bad_links:
+					reattempt_bad_links = False
 				else:
-					common.notice(f"({i+1}/{len(links)}) Link {link} is "
-						"invalid!", stream)
+					break # `links` now has a set of errored links.
+		return (links,)
 	except Exception as err:
 		# Re-raise all exceptions.
 		raise err
@@ -554,9 +573,30 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 	stream : io.TextIOBase
 		The stream to print messages to. Defaults to `sys.stdout`. Can
 		be `None`.
+	
+	Raises
+	------
+	ValueError
+		If `threads` is < 1.
 	"""
 
-	pass
+	if threads < 1:
+		raise ValueError()
+	elif threads == 1:
+		return download_st(links, folder, stream)
+	else:
+		split_links = array_split(list(links), threads)
+		daemons = []
+		for (i, link_list) in enumerate(split_links):
+			daemons.append(Thread(target=download_st, daemon=True,
+				args=(set(link_list), folder, None)))
+			daemons[-1].start()
+		# Block until all threads have finished.
+		for daemon in daemons:
+			daemon.join()
+		# ... will need to change the way I run threads. Will need to choose a
+		# different approach that easily lets me retrieve the return value of
+		# download_st() for each thread and then combine them.
 
 if __name__ == "__main__":
 	try:
@@ -598,7 +638,8 @@ if __name__ == "__main__":
 					raise t.ConfigError()
 			else:
 				# Download!
-				pass
+				failed_links = download_mt(options.list, threads=options.split)
+				print(failed_links)
 			if options.delete_after is not None:
 				for delete in options.delete_after:
 					try:
