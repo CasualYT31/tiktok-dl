@@ -112,6 +112,13 @@ Command-Line Options
 	parallel. Unlike usual, no live updates will be printed to the
 	console, and instead a summary of the downloading process will be
 	printed at the end.
+--output filename
+	When this option is given, terminal output will instead be
+	redirected to the given text file, but only when downloading. For
+	multi-threaded mode, there will be a file for each thread. For
+	example, if 'output.txt' is given, and `-s 3` is given, then there
+	will be three files called 'output0.txt', 'output1.txt', and
+	'output2.txt'. Any files will be overwritten if they exist.
 
 User Page Scraping
 ------------------
@@ -167,7 +174,9 @@ Exports
 import os
 import re
 import shutil
+from typing import Callable
 from threading import Thread
+from time import sleep
 from copy import deepcopy
 from sys import stdout
 from io import TextIOBase
@@ -175,6 +184,7 @@ from pathlib import Path
 from argparse import ArgumentParser, ArgumentTypeError
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
+from urllib.error import HTTPError
 from requests_html import HTMLSession
 from pyppeteer.errors import TimeoutError
 from numpy import array_split
@@ -275,6 +285,7 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('-n', '--no-history', action='store_true')
 	parser.add_argument('-s', '--split', type=thread_count, default=1,
 		metavar='THREADS')
+	parser.add_argument('-o', '--output', metavar='FILEPATH')
 	parser.add_argument('input', nargs='*', metavar='INPUT')
 	return parser
 
@@ -492,7 +503,8 @@ def go_into_user_folder(user: str, stream: TextIOBase=stdout) -> bool:
 	return True
 
 def download_st(original_links: set[str], folder: os.path=".",
-	stream: TextIOBase=stdout):
+	stream: TextIOBase=stdout,
+	progress_func: Callable[[int, int, bool, bool], None]=None):
 	"""Downloads a set of links into a given folder.
 	
 	Note that new folders will be created for each user within the given
@@ -507,21 +519,30 @@ def download_st(original_links: set[str], folder: os.path=".",
 	stream : io.TextIOBase
 		The stream to print messages to. Defaults to `sys.stdout`. Can
 		be `None`.
+	progress_func : Callable[[int, int, bool, bool], None]
+		The function to invoke when this function needs to report
+		that it has completed a link. If `None`, no progress will be
+		reported. See `DownloadStThread` for more information.
 	
 	Returns
 	-------
-	tuple : list[str]
-		1. A list of links that failed to download.
+	tuple : set[str], set[str]
+		1. A set of links that failed to download.
+		2. A set of links that failed due to a 404 error.
 	"""
 
 	links = deepcopy(original_links)
+	http_404_links = set()
 	old_cwd = os.getcwd()
 	try:
+		os.chdir(folder)
+		reattempt_bad_links = True
 		with TiktokDL(stream) as ydl:
-			reattempt_bad_links = True
 			while len(links) > 0:
 				bad_links = set()
 				for (i, link) in enumerate(links):
+					if progress_func is not None:
+						progress_func(i, len(links), reattempt_bad_links, False)
 					link = common.clean_up_link(link)
 					if common.link_is_valid(link):
 						user = common.extract_username_from_link(link)
@@ -533,30 +554,117 @@ def download_st(original_links: set[str], folder: os.path=".",
 							stream)
 						try:
 							ydl.download(link)
-						except (DownloadError, ExtractorError):
-							bad_links.add(link)
+						except (DownloadError, ExtractorError) as err:
+							if isinstance(err.exc_info[1], HTTPError):
+								if err.exc_info[1].code == 404:
+									# Unavailable video, so no point trying to
+									# download it again. It's worth reporting it,
+									# though.
+									http_404_links.add(link)
+							else:
+								bad_links.add(link)
 						finally:
 							if go_back_to_root:
 								os.chdir("./..")
 					else:
 						common.notice(f"({i+1}/{len(links)}) Link {link} is "
 							"invalid!", stream)
+				if progress_func is not None:
+					progress_func(len(links), len(links),
+						reattempt_bad_links, False)
 				links = set()
 				links.update(bad_links)
 				if reattempt_bad_links:
 					reattempt_bad_links = False
 				else:
 					break # `links` now has a set of errored links.
-		return (links,)
+		if progress_func is not None:
+			progress_func(len(links), len(links), reattempt_bad_links, True)
+		return (links, http_404_links)
 	except Exception as err:
 		# Re-raise all exceptions.
+		if progress_func is not None:
+			progress_func(0, 0, False, True)
 		raise err
 	finally:
 		# Always make sure to revert back to the old CWD.
 		os.chdir(old_cwd)
 
+class DownloadStThread(Thread):
+	"""Allows client code to run `download_st` in a separate thread.
+	"""
+
+	def __init__(self, links: set[str], folder: os.path=".",
+		file: str=None):
+		"""Sets up a `download_st` thread, ready for execution later.
+
+		Note that a threaded version of `download_st` cannot output
+		anything to a stream.
+		
+		Parameters
+		----------
+		links : set of str
+			The set of links to download.
+		folder : os.path
+			The folder to download videos into.
+		file : str
+			The path of the file to write output to.
+		"""
+
+		Thread.__init__(self)
+		self.result = None
+		self.links = links
+		self.folder = folder
+		self.progress = (0, 0, True, False)
+		if file is None:
+			self.stream = None
+		else:
+			self.stream = open(file, 'w')
+	
+	def __del__(self):
+		"""Closes the file stream used to store output.
+		"""
+
+		if self.stream is not None:
+			self.stream.close()
+
+	def run(self):
+		"""Executes the `download_st` call and stores the result in
+		`self.result`.
+		"""
+
+		self.result = download_st(self.links, self.folder, self.stream,
+			self.progress_report)
+	
+	def progress_report(self, progress: int, total: int, first_call: bool,
+		completed: bool) -> None:
+		"""Report on the progress of the thread.
+
+		Updates `self.progress` with a tuple. The first int holds the
+		number of links processed so far, and the second int holds the
+		total number of links to process. The third value, a bool, is
+		`False` if the progress report describes a reattempt to download
+		failed links. And the final value, another bool, is `True` once
+		the thread has completed its work.
+		
+		Parameters
+		----------
+		progress : int
+			The number of links processed so far.
+		total : int
+			The total number of links to process.
+		first_call : bool
+			Should be `False` if the progress report is describing a
+			reattempt to download failed links.
+		completed : bool
+			`True` if all the links have been processed or if there was
+			an error, `False` if the thread is still completing work.
+		"""
+
+		self.progress = (progress, total, first_call, completed)
+
 def download_mt(links: set[str], folder: os.path=".", threads: int=1,
-	stream: TextIOBase = stdout):
+	file: str=None, stream: TextIOBase = stdout):
 	"""Downloads a set of links into a given folder.
 	
 	Note that new folders will be created for each user within the given
@@ -570,9 +678,18 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 		The folder to download videos into.
 	threads : int
 		The number of threads to use. Defaults to 1.
+	file : str
+		If this argument is given, a set of text files will be created
+		and output will be redirected into there. This overrides
+		`stream` if given.
 	stream : io.TextIOBase
 		The stream to print messages to. Defaults to `sys.stdout`. Can
 		be `None`.
+	
+	Returns
+	tuple : set[str], set[str]
+		1. A set of links that failed to download.
+		2. A set of links that failed due to a 404 error.
 	
 	Raises
 	------
@@ -583,20 +700,63 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 	if threads < 1:
 		raise ValueError()
 	elif threads == 1:
-		return download_st(links, folder, stream)
+		if file is None:
+			return download_st(links, folder, stream)
+		else:
+			with open(file, 'w') as outputStream:
+				return download_st(links, folder, outputStream)
 	else:
 		split_links = array_split(list(links), threads)
-		daemons = []
+		running_threads = []
 		for (i, link_list) in enumerate(split_links):
-			daemons.append(Thread(target=download_st, daemon=True,
-				args=(set(link_list), folder, None)))
-			daemons[-1].start()
-		# Block until all threads have finished.
-		for daemon in daemons:
-			daemon.join()
-		# ... will need to change the way I run threads. Will need to choose a
-		# different approach that easily lets me retrieve the return value of
-		# download_st() for each thread and then combine them.
+			if file is None:
+				running_threads.append(DownloadStThread(set(link_list), folder))
+			else:
+				if '.' in file:
+					running_threads.append(DownloadStThread(set(link_list), folder,
+						file[:file.rfind('.')] + str(i) +
+						file[file.rfind('.') + 1:]))
+				else:
+					running_threads.append(DownloadStThread(set(link_list), folder,
+						file + str(i)))
+			running_threads[-1].start()
+			# Add a small delay after starting a thread to ensure we don't get any
+			# filesystem clashes (e.g. trying to create the same folder more than
+			# once, not sure if the operations I'm using are thread-safe so best to
+			# be safe I guess).
+			sleep(1)
+		while True:
+			progress_reports = []
+			for thread in running_threads:
+				progress_reports.append(thread.progress)
+				if progress_reports[-1][3] == False:
+					stay_in_loop = False
+			for report in progress_reports:
+				if report[3] is True:
+					# Thread has completed, so skip its progress bar and leave it at
+					# 100%.
+					common.print_progress_bar(99, 100, stream,
+						"\033[92mCompleted!", " \033[0m", 0, printEnd="\r\n")
+				elif report[2] is False:
+					# Display progress bar with different colour for failed links.
+					common.print_progress_bar(report[0], report[1], stream,
+						f"\033[93m{report[0]} of {report[1]}", " \033[0m", 0,
+						printEnd="\r\n")
+				else:
+					common.print_progress_bar(report[0], report[1], stream,
+						f"{report[0]} of {report[1]}", " ", 0, printEnd="\r\n")
+			if all([i[3] for i in progress_reports]) is False:
+				for i in range(threads):
+					stream.write("\033[A")
+			else:
+				break
+		failed_links = set()
+		failed_links_404 = set()
+		for thread in running_threads:
+			thread.join()
+			failed_links.update(thread.result[0])
+			failed_links_404.update(thread.result[1])
+		return (failed_links, failed_links_404)
 
 if __name__ == "__main__":
 	try:
@@ -638,8 +798,11 @@ if __name__ == "__main__":
 					raise t.ConfigError()
 			else:
 				# Download!
-				failed_links = download_mt(options.list, threads=options.split)
-				print(failed_links)
+				results = download_mt(links, threads=options.split)
+				if len(results[0]) > 0:
+					common.notice(f"Failed links: {' '.join(map(str, results[0]))}")
+				if len(results[1]) > 0:
+					common.notice(f"404-ed links: {' '.join(map(str, results[1]))}")
 			if options.delete_after is not None:
 				for delete in options.delete_after:
 					try:
