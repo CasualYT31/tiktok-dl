@@ -489,18 +489,33 @@ def update_history(filepath: str, new_users: set[str],
 
 __process_inputs = process_inputs
 
-def go_into_user_folder(user: str, stream: TextIOBase=stdout) -> bool:
-	"""Creates a new user folder if required, then `cd`s into it."""
+def video_folder(user: str, stream: TextIOBase=stdout) -> bool:
+	"""Creates a new user folder if required, then returns the path to
+	it.
 
+	Parameters
+	----------
+	user : str
+		The name of the user to create the folder for. This is cleaned
+		up before processing.
+	stream : TextIOBase
+		The stream to output error information to. Defaults to `stdout`.
+	
+	Returns
+	-------
+	The folder to download the user's videos into. A blank string will
+	be returned if the user folder couldn't be found or created.
+	"""
+
+	user = common.clean_up_username(user)
 	if not os.path.isdir(user):
 		try:
 			os.mkdir("./" + user)
 		except OSError:
 			common.notice(f"Could not create new user folder \"{user}\": "
 				"downloading into root folder instead.", stream)
-			return False
-	os.chdir("./" + user)
-	return True
+			return ""
+	return user
 
 def download_st(original_links: set[str], folder: os.path=".",
 	stream: TextIOBase=stdout,
@@ -533,25 +548,25 @@ def download_st(original_links: set[str], folder: os.path=".",
 
 	links = deepcopy(original_links)
 	http_404_links = set()
-	old_cwd = os.getcwd()
 	try:
-		os.chdir(folder)
 		reattempt_bad_links = True
-		with TiktokDL(stream) as ydl:
-			while len(links) > 0:
-				bad_links = set()
-				for (i, link) in enumerate(links):
-					if progress_func is not None:
-						progress_func(i, len(links), reattempt_bad_links, False)
-					link = common.clean_up_link(link)
-					if common.link_is_valid(link):
-						user = common.extract_username_from_link(link)
-						# Username will be cleaned up once I make it a class.
-						# Right now, I know it should be fine to just use it
-						# straight away, but it's not the best code.
-						go_back_to_root = go_into_user_folder(user, stream)
-						common.notice(f"({i+1}/{len(links)}) Downloading {link}.",
-							stream)
+		while len(links) > 0:
+			bad_links = set()
+			for (i, link) in enumerate(links):
+				if progress_func is not None:
+					progress_func(i, len(links), reattempt_bad_links, False)
+				link = common.clean_up_link(link)
+				if common.link_is_valid(link):
+					user = common.extract_username_from_link(link)
+					# Username will be cleaned up once I make it a class.
+					# Right now, I know it should be fine to just use it
+					# straight away, but it's not the best code.
+					common.notice(f"({i+1}/{len(links)}) Downloading {link}.",
+						stream)
+					with TiktokDL(stream, {
+						"outtmpl": f"{os.getcwd()}/{video_folder(user, stream)}"
+						"/%(title).175s [%(id)s].%(ext)s"
+						}) as ydl:
 						try:
 							ydl.download(link)
 						except (DownloadError, ExtractorError) as err:
@@ -563,21 +578,18 @@ def download_st(original_links: set[str], folder: os.path=".",
 									http_404_links.add(link)
 							else:
 								bad_links.add(link)
-						finally:
-							if go_back_to_root:
-								os.chdir("./..")
-					else:
-						common.notice(f"({i+1}/{len(links)}) Link {link} is "
-							"invalid!", stream)
-				if progress_func is not None:
-					progress_func(len(links), len(links),
-						reattempt_bad_links, False)
-				links = set()
-				links.update(bad_links)
-				if reattempt_bad_links:
-					reattempt_bad_links = False
 				else:
-					break # `links` now has a set of errored links.
+					common.notice(f"({i+1}/{len(links)}) Link {link} is invalid!",
+						stream)
+			if progress_func is not None:
+				progress_func(len(links), len(links),
+					reattempt_bad_links, False)
+			links = set()
+			links.update(bad_links)
+			if reattempt_bad_links:
+				reattempt_bad_links = False
+			else:
+				break # `links` now has a set of errored links.
 		if progress_func is not None:
 			progress_func(len(links), len(links), reattempt_bad_links, True)
 		return (links, http_404_links)
@@ -586,9 +598,6 @@ def download_st(original_links: set[str], folder: os.path=".",
 		if progress_func is not None:
 			progress_func(0, 0, False, True)
 		raise err
-	finally:
-		# Always make sure to revert back to the old CWD.
-		os.chdir(old_cwd)
 
 class DownloadStThread(Thread):
 	"""Allows client code to run `download_st` in a separate thread.
@@ -619,7 +628,7 @@ class DownloadStThread(Thread):
 		if file is None:
 			self.stream = None
 		else:
-			self.stream = open(file, 'w')
+			self.stream = open(file, mode='w', encoding='utf-8')
 	
 	def __del__(self):
 		"""Closes the file stream used to store output.
@@ -703,60 +712,68 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 		if file is None:
 			return download_st(links, folder, stream)
 		else:
-			with open(file, 'w') as outputStream:
+			with open(file, mode='w', encoding='utf-8') as outputStream:
 				return download_st(links, folder, outputStream)
 	else:
 		split_links = array_split(list(links), threads)
+		# If any of the lists are empty, remove them.
+		split_links = [l for l in split_links if len(l) > 0]
+		# threads = len(split_links)
 		running_threads = []
-		for (i, link_list) in enumerate(split_links):
-			if file is None:
-				running_threads.append(DownloadStThread(set(link_list), folder))
-			else:
-				if '.' in file:
-					running_threads.append(DownloadStThread(set(link_list), folder,
-						file[:file.rfind('.')] + str(i) +
-						file[file.rfind('.') + 1:]))
+		try:
+			for (i, link_list) in enumerate(split_links):
+				if file is None:
+					running_threads.append(DownloadStThread(set(link_list), folder))
 				else:
-					running_threads.append(DownloadStThread(set(link_list), folder,
-						file + str(i)))
-			running_threads[-1].start()
-			# Add a small delay after starting a thread to ensure we don't get any
-			# filesystem clashes (e.g. trying to create the same folder more than
-			# once, not sure if the operations I'm using are thread-safe so best to
-			# be safe I guess).
-			sleep(1)
-		while True:
-			progress_reports = []
+					if '.' in file:
+						running_threads.append(DownloadStThread(set(link_list), folder,
+							file[:file.rfind('.')] + str(i) +
+							file[file.rfind('.'):]))
+					else:
+						running_threads.append(DownloadStThread(set(link_list), folder,
+							file + str(i)))
+				running_threads[-1].start()
+				# Add a small delay after starting a thread to ensure we don't get any
+				# filesystem clashes (e.g. trying to create the same folder more than
+				# once, not sure if the operations I'm using are thread-safe so best to
+				# be safe I guess).
+				sleep(1)
+			while True:
+				progress_reports = []
+				for thread in running_threads:
+					progress_reports.append(thread.progress)
+					if progress_reports[-1][3] == False:
+						stay_in_loop = False
+				for report in progress_reports:
+					if report[3] is True:
+						# Thread has completed, so skip its progress bar and leave it at
+						# 100%.
+						common.print_progress_bar(100, 100, stream,
+							"\033[92mCompleted!", " \033[0m", 0, printEnd="\r\n")
+					elif report[2] is False:
+						# Display progress bar with different colour for failed links.
+						common.print_progress_bar(report[0], report[1], stream,
+							f"\033[93m{report[0]} of {report[1]}", " \033[0m", 0,
+							printEnd="\r\n")
+					else:
+						common.print_progress_bar(report[0], report[1], stream,
+							f"{report[0]} of {report[1]}", " ", 0, printEnd="\r\n")
+				if all([i[3] for i in progress_reports]) is False:
+					# Go back to the beginning of the first progress bar line.
+					for i in range(threads):
+						stream.write("\033[A")
+				else:
+					break
+			failed_links = set()
+			failed_links_404 = set()
 			for thread in running_threads:
-				progress_reports.append(thread.progress)
-				if progress_reports[-1][3] == False:
-					stay_in_loop = False
-			for report in progress_reports:
-				if report[3] is True:
-					# Thread has completed, so skip its progress bar and leave it at
-					# 100%.
-					common.print_progress_bar(99, 100, stream,
-						"\033[92mCompleted!", " \033[0m", 0, printEnd="\r\n")
-				elif report[2] is False:
-					# Display progress bar with different colour for failed links.
-					common.print_progress_bar(report[0], report[1], stream,
-						f"\033[93m{report[0]} of {report[1]}", " \033[0m", 0,
-						printEnd="\r\n")
-				else:
-					common.print_progress_bar(report[0], report[1], stream,
-						f"{report[0]} of {report[1]}", " ", 0, printEnd="\r\n")
-			if all([i[3] for i in progress_reports]) is False:
-				for i in range(threads):
-					stream.write("\033[A")
-			else:
-				break
-		failed_links = set()
-		failed_links_404 = set()
-		for thread in running_threads:
-			thread.join()
-			failed_links.update(thread.result[0])
-			failed_links_404.update(thread.result[1])
-		return (failed_links, failed_links_404)
+				thread.join()
+				failed_links.update(thread.result[0])
+				failed_links_404.update(thread.result[1])
+			return (failed_links, failed_links_404)
+		except KeyboardInterrupt as interrupt:
+			# Kill all threads before raising the exception again.
+			raise interrupt
 
 if __name__ == "__main__":
 	try:
@@ -798,7 +815,8 @@ if __name__ == "__main__":
 					raise t.ConfigError()
 			else:
 				# Download!
-				results = download_mt(links, threads=options.split)
+				results = download_mt(links, threads=options.split,
+					file=options.output)
 				if len(results[0]) > 0:
 					common.notice(f"Failed links: {' '.join(map(str, results[0]))}")
 				if len(results[1]) > 0:
