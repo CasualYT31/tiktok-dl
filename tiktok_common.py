@@ -37,7 +37,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 from xmlrpc.client import boolean
 
-def print_progress_bar(iteration, total, stream = sys.stdout, prefix = '',
+def print_progress_bar(iteration, total, prefix = '',
 	suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
 	"""Call in a loop to create terminal progress bar.
 
@@ -47,8 +47,6 @@ def print_progress_bar(iteration, total, stream = sys.stdout, prefix = '',
 	@params:
 		iteration   - Required  : current iteration (Int)
 		total       - Required  : total iterations (Int)
-		stream      - Optional  : The stream to output the bar to.
-		                          Defaults to sys.stdout.
 		prefix      - Optional  : prefix string (Str)
 		suffix      - Optional  : suffix string (Str)
 		decimals    - Optional  : positive number of decimals in percent
@@ -59,11 +57,10 @@ def print_progress_bar(iteration, total, stream = sys.stdout, prefix = '',
 		                          (Str)
 	"""
 
-	if stream is not None:
-		percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-		filledLength = int(length * iteration // total)
-		bar = fill * filledLength + '-' * (length - filledLength)
-		stream.write(f"\r{prefix} |{bar}| {percent}% {suffix}{printEnd}")
+	percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+	filledLength = int(length * iteration // total)
+	bar = fill * filledLength + '-' * (length - filledLength)
+	print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
 
 def the_same_filepath(path1: str, path2: str) -> bool:
 	"""Finds out if two paths point to the same file.

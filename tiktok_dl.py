@@ -119,6 +119,11 @@ Command-Line Options
 	example, if 'output.txt' is given, and `-s 3` is given, then there
 	will be three files called 'output0.txt', 'output1.txt', and
 	'output2.txt'. Any files will be overwritten if they exist.
+--user username
+	When this option is given, only videos from the given user will be
+	used as input. This option can be given multiple times, and will add
+	usernames to the list (e.g. only videos from all the users given
+	will be downloaded).
 
 User Page Scraping
 ------------------
@@ -276,7 +281,7 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('-i', '--ignore', action='append', \
 		metavar='LINK')
 	parser.add_argument('-l', '--list', metavar='FILEPATH')
-	parser.add_argument('-u', '--user-method', choices=['ytdlp', 'html'], \
+	parser.add_argument('--user-method', choices=['ytdlp', 'html'], \
 		default=DEFAULT_USER_METHOD, metavar='METHOD')
 	parser.add_argument('-d', '--delete-after', action='append', \
 		metavar='FILE')
@@ -286,6 +291,8 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('-s', '--split', type=thread_count, default=1,
 		metavar='THREADS')
 	parser.add_argument('-o', '--output', metavar='FILEPATH')
+	parser.add_argument('-u', '--user', action='append', metavar='USERNAME')
+	parser.add_argument('-f', '--folder', default='.', metavar='OUTPUTFOLDER')
 	parser.add_argument('input', nargs='*', metavar='INPUT')
 	return parser
 
@@ -341,7 +348,7 @@ def scrape_from_user(user: str, session: YoutubeDL=None,
 			common.notice(f"Failed to scrape for user \"{user}\".")
 		return links
 
-def __process_inputs__(inputs, user_method, stream):
+def __process_inputs__(inputs, whitelist, user_method, stream):
 	"""Internal function: use process_inputs instead!
 
 	Used to forward declare the process_input function so that scrape_from_file
@@ -351,7 +358,7 @@ def __process_inputs__(inputs, user_method, stream):
 	pass
 __process_inputs = __process_inputs__
 
-def scrape_from_file(path: str, session: YoutubeDL=None,
+def scrape_from_file(path: str, whitelist: set[str], session: YoutubeDL=None,
 	stream: TextIOBase = stdout) -> tuple[set[str],set[str],set[str]]:
 	"""Scrapes inputs from a given file.
 
@@ -364,6 +371,11 @@ def scrape_from_file(path: str, session: YoutubeDL=None,
 	----------
 	path : str
 		Path to the file to read from.
+	whitelist : set of str
+		If a link is for a video uploaded by a user not in this list,
+		then it will be removed from the resulting tuple. If the
+		whitelist is blank, then no links will be removed from the
+		result. By default, the whitelist is blank.
 	session : YoutubeDL
 		The `yt-dlp` session to use if the 'ytdlp' method is required
 		for scraping from user pages. If `None`, the `html` method is
@@ -401,9 +413,9 @@ def scrape_from_file(path: str, session: YoutubeDL=None,
 		# in the file to prevent RecursionErrors. Also remove blank lines.
 		contents = [line for line in contents \
 			if line != "" and not common.the_same_filepath(path, line)]
-		return __process_inputs(contents, session, stream)
+		return __process_inputs(contents, whitelist, session, stream)
 
-def __process_inputs_internal(inputs, session, stream):
+def __process_inputs_internal(inputs, whitelist, session, stream):
 	links = set()
 	users = set()
 	htmls = set()
@@ -412,7 +424,7 @@ def __process_inputs_internal(inputs, session, stream):
 			links.add(common.clean_up_link(input))
 		elif Path(input).is_file():
 			(new_links, new_users, new_htmls) = \
-				scrape_from_file(input, session, stream)
+				scrape_from_file(input, whitelist, session, stream)
 			links = links.union(new_links)
 			users = users.union(new_users)
 			htmls = htmls.union(new_htmls)
@@ -423,14 +435,20 @@ def __process_inputs_internal(inputs, session, stream):
 			common.notice(f"Invalid input: {input}", stream)
 	return (links, users, htmls)
 
-def process_inputs(inputs: list[str], method: str=DEFAULT_USER_METHOD,
+def process_inputs(inputs: list[str], whitelist: set[str]=set(),
+	method: str=DEFAULT_USER_METHOD,
 	stream: TextIOBase = stdout) -> tuple[set[str],set[str],set[str]]:
 	"""Scrapes all of the links from a given list of inputs.
 	
 	Parameters
 	----------
 	inputs : list of str
-		List of links, filenames, and usernames.
+		List of links, filenames, and usernames
+	whitelist : set of str
+		If a link is for a video uploaded by a user not in this list,
+		then it will be removed from the resulting tuple. If the
+		whitelist is blank, then no links will be removed from the
+		result. By default, the whitelist is blank.
 	method : str
 		Defines the method used to scrape from user pages. Can be
 		'ytdlp' or 'html'. Defaults to 'html' if the string doesn't
@@ -448,11 +466,21 @@ def process_inputs(inputs: list[str], method: str=DEFAULT_USER_METHOD,
 		files). Finally, a set of all the files that were HTML scripts.
 	"""
 
+	ret = None
 	if method == 'ytdlp':
 		with TiktokDL(stream) as ydl:
-			return __process_inputs_internal(inputs, ydl, stream)
+			ret = __process_inputs_internal(inputs, whitelist, ydl, stream)
 	else:
-		return __process_inputs_internal(inputs, None, stream)
+		ret = __process_inputs_internal(inputs, whitelist, None, stream)
+	# Now remove all links from users that aren't in the whitelist.
+	# You could probably use a set comprehension here but idc.
+	if len(whitelist) > 0:
+		old_links = deepcopy(ret[0])
+		for link in old_links:
+			for user in whitelist:
+				if common.extract_username_from_link(link) != user:
+					ret[0].remove(link)
+	return ret
 
 def update_history(filepath: str, new_users: set[str],
 	stream: TextIOBase = stdout) -> None:
@@ -489,12 +517,14 @@ def update_history(filepath: str, new_users: set[str],
 
 __process_inputs = process_inputs
 
-def video_folder(user: str, stream: TextIOBase=stdout) -> bool:
+def video_folder(folder: str, user: str, stream: TextIOBase=stdout) -> bool:
 	"""Creates a new user folder if required, then returns the path to
 	it.
 
 	Parameters
 	----------
+	folder : str
+		The folder to create the user folder within.
 	user : str
 		The name of the user to create the folder for. This is cleaned
 		up before processing.
@@ -508,14 +538,13 @@ def video_folder(user: str, stream: TextIOBase=stdout) -> bool:
 	"""
 
 	user = common.clean_up_username(user)
-	if not os.path.isdir(user):
-		try:
-			os.mkdir("./" + user)
-		except OSError:
-			common.notice(f"Could not create new user folder \"{user}\": "
-				"downloading into root folder instead.", stream)
-			return ""
-	return user
+	try:
+		os.makedirs(folder + "/" + user, exist_ok=True)
+	except OSError:
+		common.notice(f"Could not create new user folder \"{user}\": "
+			"downloading into root folder instead.", stream)
+		return folder
+	return folder + "/" + user
 
 def download_st(original_links: set[str], folder: os.path=".",
 	stream: TextIOBase=stdout,
@@ -564,7 +593,7 @@ def download_st(original_links: set[str], folder: os.path=".",
 					common.notice(f"({i+1}/{len(links)}) Downloading {link}.",
 						stream)
 					with TiktokDL(stream, {
-						"outtmpl": f"{os.getcwd()}/{video_folder(user, stream)}"
+						"outtmpl": f"{video_folder(folder, user, stream)}"
 						"/%(title).175s [%(id)s].%(ext)s"
 						}) as ydl:
 						try:
@@ -574,7 +603,8 @@ def download_st(original_links: set[str], folder: os.path=".",
 								if err.exc_info[1].code == 404:
 									# Unavailable video, so no point trying to
 									# download it again. It's worth reporting it,
-									# though.
+									# though, because sometimes the video might be
+									# available but inaccesible via yt-dlp.
 									http_404_links.add(link)
 							else:
 								bad_links.add(link)
@@ -621,6 +651,7 @@ class DownloadStThread(Thread):
 		"""
 
 		Thread.__init__(self)
+		self.daemon = True
 		self.result = None
 		self.links = links
 		self.folder = folder
@@ -673,7 +704,7 @@ class DownloadStThread(Thread):
 		self.progress = (progress, total, first_call, completed)
 
 def download_mt(links: set[str], folder: os.path=".", threads: int=1,
-	file: str=None, stream: TextIOBase = stdout):
+	file: str=None, stream: TextIOBase=stdout):
 	"""Downloads a set of links into a given folder.
 	
 	Note that new folders will be created for each user within the given
@@ -718,62 +749,63 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 		split_links = array_split(list(links), threads)
 		# If any of the lists are empty, remove them.
 		split_links = [l for l in split_links if len(l) > 0]
-		# threads = len(split_links)
 		running_threads = []
-		try:
-			for (i, link_list) in enumerate(split_links):
-				if file is None:
-					running_threads.append(DownloadStThread(set(link_list), folder))
+		for (i, link_list) in enumerate(split_links):
+			if file is None:
+				running_threads.append(DownloadStThread(set(link_list), folder))
+			else:
+				if '.' in file:
+					running_threads.append(DownloadStThread(set(link_list), folder,
+						file[:file.rfind('.')] + str(i) +
+						file[file.rfind('.'):]))
 				else:
-					if '.' in file:
-						running_threads.append(DownloadStThread(set(link_list), folder,
-							file[:file.rfind('.')] + str(i) +
-							file[file.rfind('.'):]))
-					else:
-						running_threads.append(DownloadStThread(set(link_list), folder,
-							file + str(i)))
-				running_threads[-1].start()
-				# Add a small delay after starting a thread to ensure we don't get any
-				# filesystem clashes (e.g. trying to create the same folder more than
-				# once, not sure if the operations I'm using are thread-safe so best to
-				# be safe I guess).
-				sleep(1)
-			while True:
-				progress_reports = []
-				for thread in running_threads:
-					progress_reports.append(thread.progress)
-					if progress_reports[-1][3] == False:
-						stay_in_loop = False
-				for report in progress_reports:
-					if report[3] is True:
-						# Thread has completed, so skip its progress bar and leave it at
-						# 100%.
-						common.print_progress_bar(100, 100, stream,
-							"\033[92mCompleted!", " \033[0m", 0, printEnd="\r\n")
-					elif report[2] is False:
-						# Display progress bar with different colour for failed links.
-						common.print_progress_bar(report[0], report[1], stream,
-							f"\033[93m{report[0]} of {report[1]}", " \033[0m", 0,
-							printEnd="\r\n")
-					else:
-						common.print_progress_bar(report[0], report[1], stream,
-							f"{report[0]} of {report[1]}", " ", 0, printEnd="\r\n")
-				if all([i[3] for i in progress_reports]) is False:
-					# Go back to the beginning of the first progress bar line.
-					for i in range(threads):
-						stream.write("\033[A")
-				else:
-					break
-			failed_links = set()
-			failed_links_404 = set()
+					running_threads.append(DownloadStThread(set(link_list), folder,
+						file + str(i)))
+			running_threads[-1].start()
+		while True:
+			progress_reports = []
 			for thread in running_threads:
-				thread.join()
-				failed_links.update(thread.result[0])
-				failed_links_404.update(thread.result[1])
-			return (failed_links, failed_links_404)
-		except KeyboardInterrupt as interrupt:
-			# Kill all threads before raising the exception again.
-			raise interrupt
+				progress_reports.append(thread.progress)
+			for report in progress_reports:
+				if report[3] is True:
+					# Thread has completed, so skip its progress bar and leave it
+					# at 100%.
+					common.print_progress_bar(
+						iteration=100,
+						total=100,
+						prefix="\033[92mCompleted!",
+						suffix=" \033[0m",
+						decimals=0,
+						printEnd='\r\n')
+				elif report[2] is False:
+					# Display progress bar with different colour for failed links.
+					common.print_progress_bar(
+						iteration=report[0],
+						total=report[1],
+						prefix=f"\033[93m{report[0]} of {report[1]}",
+						suffix=" \033[0m",
+						decimals=0,
+						printEnd='\r\n')
+				else:
+					common.print_progress_bar(
+						iteration=report[0],
+						total=report[1],
+						prefix=f"{report[0]} of {report[1]}",
+						decimals=0,
+						printEnd='\r\n')
+			if all([i[3] for i in progress_reports]) is False:
+				# Go back to the beginning of the first progress bar line.
+				for i in range(len(running_threads)):
+					print("\033[A", end='')
+			else:
+				break
+		failed_links = set()
+		failed_links_404 = set()
+		for thread in running_threads:
+			thread.join()
+			failed_links.update(thread.result[0])
+			failed_links_404.update(thread.result[1])
+		return (failed_links, failed_links_404)
 
 if __name__ == "__main__":
 	try:
@@ -786,8 +818,11 @@ if __name__ == "__main__":
 			config = t.load_or_create_config(options.config)
 			if options.delete_after is not None:
 				options.input.extend(options.delete_after)
+			if options.user is None:
+				options.user = []
 			(links, users, html_files) = \
-				process_inputs(options.input, options.user_method)
+				process_inputs(options.input, set(options.user),
+				options.user_method)
 			if not options.no_history:
 				try:
 					update_history(options.history, users)
@@ -816,7 +851,7 @@ if __name__ == "__main__":
 			else:
 				# Download!
 				results = download_mt(links, threads=options.split,
-					file=options.output)
+					file=options.output, folder=options.folder)
 				if len(results[0]) > 0:
 					common.notice(f"Failed links: {' '.join(map(str, results[0]))}")
 				if len(results[1]) > 0:
