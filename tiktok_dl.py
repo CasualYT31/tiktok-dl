@@ -176,6 +176,7 @@ Exports
 	* update_history - Updates a username history file with more users.
 """
 
+from platform import system
 import os
 import re
 import shutil
@@ -794,9 +795,21 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 						decimals=0,
 						printEnd='\r\n')
 			if all([i[3] for i in progress_reports]) is False:
-				# Go back to the beginning of the first progress bar line.
-				for i in range(len(running_threads)):
-					print("\033[A", end='')
+			# 	# Go back to the beginning of the first progress bar line.
+			# 	for i in range(len(running_threads)):
+			# 		print("\033[A", end='')
+				# This stopped fucking working, so I'm just resorting to using os.
+				# It's something to do with download_st() now opening a new
+				# YoutubeDL() instance for every link, because once I comment the
+				# whole with statement out, the progress bars work properly. If
+				# there's some way to change outtmpl after YoutubeDL has been
+				# created, then I will try bringing back the old method, but for
+				# now, put up with this.
+				sleep(0.5)
+				if "Windows" in system():
+					os.system('cls')
+				else:
+					os.system('clear')
 			else:
 				break
 		failed_links = set()
