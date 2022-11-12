@@ -5,6 +5,7 @@ This script requires the following modules in order to run:
 
 Exports
 -------
+	* print_progress_bar - Prints a progress bar to the given stream.
 	* the_same_filepath - Finds out if two paths point to the same file.
 	* write - Writes a message to a stream, if a stream is given.
 	* notice - Writes a `tiktok-dl` message to the given text stream.
@@ -38,7 +39,8 @@ from argparse import Namespace
 from xmlrpc.client import boolean
 
 def print_progress_bar(iteration, total, prefix = '',
-	suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+	suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r",
+	stream = sys.stdout):
 	"""Call in a loop to create terminal progress bar.
 
 	Code was obtained from here: https://stackoverflow.com/a/34325723.
@@ -55,12 +57,14 @@ def print_progress_bar(iteration, total, prefix = '',
 		fill        - Optional  : bar fill character (Str)
 		printEnd    - Optional  : end character (e.g. "\r", "\r\n")
 		                          (Str)
+		stream      - Optional  : the stream to print the progress bar
+		                          to, defaults to `stdout`.
 	"""
 
 	percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
 	filledLength = int(length * iteration // total)
 	bar = fill * filledLength + '-' * (length - filledLength)
-	print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
+	stream.write(f"\r{prefix} |{bar}| {percent}% {suffix}{printEnd}")
 
 def the_same_filepath(path1: str, path2: str) -> bool:
 	"""Finds out if two paths point to the same file.
@@ -786,6 +790,25 @@ class UserConfig:
 			return copy.deepcopy(self.config[user]["ignore"])
 		else:
 			raise KeyError()
+	
+	def is_ignored_link(self, link: str) -> bool:
+		"""Determines if the given link is to be ignored or not.
+
+		Parameters
+		----------
+		link : str
+			The link to test.
+		
+		Returns
+		-------
+		bool
+			`True` if the link is to be ignored, `False` otherwise.
+		"""
+
+		user = extract_username_from_link(link)
+		if user in self.config and link in self.config[user]["ignore"]:
+			return True
+		return False
 
 	def toggle_ignore_link(self, link: str) -> bool:
 		"""Either adds or removes a link from the correct ignore list.
