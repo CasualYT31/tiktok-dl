@@ -910,10 +910,18 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 				break
 		failed_links = set()
 		failed_links_404 = set()
-		for thread in running_threads:
+		for thread_index, thread in enumerate(running_threads):
 			thread.join()
-			failed_links.update(thread.result[0])
-			failed_links_404.update(thread.result[1])
+			# In very rare cases, thread.result can be None. Not sure why yet. For
+			# now, just report it to the user whenever it happens, and don't update
+			# the sets.
+			if thread.result is None:
+				print("Thread " + str(thread_index) + " did not have a result "
+					"tuple! The links it was given:")
+				print(*thread.links, sep='\n')
+			else:
+				failed_links.update(thread.result[0])
+				failed_links_404.update(thread.result[1])
 		return (failed_links, failed_links_404)
 
 if __name__ == "__main__":
