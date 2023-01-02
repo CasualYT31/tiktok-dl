@@ -963,19 +963,20 @@ if __name__ == "__main__":
 					retries=options.retries, user_config=config)
 				if len(results[0]) > 0:
 					common.notice(f"Failed links: {' '.join(map(str, results[0]))}")
-				try:
-					with open(options.error_links_history, mode='a',
-						encoding='utf-8') as errored_links:
-						for link in results[1]:
-							errored_links.write(link + "\n")
-					common.notice(f"Wrote {len(results[1])} 404-ed link"
-						f"{'' if len(results[1]) == 1 else 's'} to "
-						f"{options.error_links_history}.")
-				except OSError:
-					common.notice("Could not write 404-ed link"
-						f"{'' if len(results[1]) == 1 else 's'} to "
-						f"{options.error_links_history}, outputting to console "
-						f"instead: {' '.join(map(str, results[1]))}")
+				if len(results[1]) > 0:
+					try:
+						with open(options.error_links_history, mode='a',
+							encoding='utf-8') as errored_links:
+							for link in results[1]:
+								errored_links.write(link + "\n")
+						common.notice(f"Wrote {len(results[1])} 404-ed link"
+							f"{'' if len(results[1]) == 1 else 's'} to "
+							f"{options.error_links_history}.")
+					except OSError:
+						common.notice("Could not write 404-ed link"
+							f"{'' if len(results[1]) == 1 else 's'} to "
+							f"{options.error_links_history}, outputting to console "
+							f"instead: {' '.join(map(str, results[1]))}")
 			if options.delete_after is not None:
 				for delete in options.delete_after:
 					try:
