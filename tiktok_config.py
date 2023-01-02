@@ -72,7 +72,8 @@ Command-Line Options
 	Enters interactive mode. In this mode, the user will be prompted to
 	enter a link. This will then be either added to or removed from the
 	appropriate user's ignored links. Then, the prompts will loop
-	infinitely, until the user shuts down the program.
+	infinitely, until the user shuts down the program. This mode can
+	also be used to input some of the above commands.
 
 Exports
 -------
@@ -369,6 +370,18 @@ def list_user_objects(config: UserConfig, users: list[str], \
 		result[-1] = result[-1][:-1]
 	return result
 
+def print_list_query(filter: str) -> list[str]:
+	""""""
+
+	if filter is not None:
+		username_list = list_users_with_config_objects(config, filter)
+	else:
+		username_list = []
+	if len(username_list) > 0:
+		print("")
+		print(columnify(username_list, os.get_terminal_size().columns))
+	return username_list
+
 if __name__ == "__main__":
 	try:
 		common.check_python_version()
@@ -388,16 +401,8 @@ if __name__ == "__main__":
 			config.save_config(options.config)
 			
 			# Now process query stuff.
-			if options.list is not None:
-				username_list = \
-					list_users_with_config_objects(config, options.list)
-			else:
-				username_list = []
+			username_list = print_list_query(options.list)
 			config_objects_to_print = list_user_objects(config, options.user)
-			
-			if len(username_list) > 0:
-				print("")
-				print(columnify(username_list, os.get_terminal_size().columns))
 			if len(config_objects_to_print) > 0:
 				print("")
 				[print(user_obj) for user_obj in config_objects_to_print]
@@ -405,14 +410,51 @@ if __name__ == "__main__":
 			# Enter interactive mode.
 			if options.interactive:
 				if len(username_list) > 0 or len(config_objects_to_print) > 0:
-					print("")
+					print("") # Print newline.
 				common.notice("Now entering interactive mode.")
 				print("Input links, one at a time, that are to be ignored.")
 				print("Each link will be saved as they are entered.")
-				print("Issue Ctrl+C to shutdown interactive mode.\n")
+				print("Issue 'help' for information on the other commands that can "
+					"be used in this mode.")
+				print("Issue Ctrl+C or 'exit' to shutdown interactive mode.\n")
 				while True:
 					link = input("> ")
-					config = perform_ignores(config, [link])
-					config.save_config(options.config)
+					words = link.split()
+					command = words[0].lower().strip()
+					if (command == "exit"):
+						raise KeyboardInterrupt
+					elif (command == "help"):
+						print("l or list, with optional parameter filter: same as "
+							"the --list command line option.")
+						print("s or set, with username, property, and value "
+							"parameters: same as the --set command line option.")
+						print("exit: exits the program.")
+						print("You can also input a username to list its config "
+							"object.")
+					elif (command == "l" or command == "list"):
+						if len(words) < 2:
+							print_list_query(".*")
+							print("")
+						else:
+							print_list_query(words[1])
+							print("")
+					elif (command == "s" or command == "set"):
+						if len(words) < 4:
+							print("You must specify a username, property, then "
+								"value!")
+							continue
+						property_name = words[2].lower().strip()
+						if property_name == "comment":
+							config = perform_sets(config,
+								[(words[1], property_name, " ".join(words[3:]))])
+						else:
+							config = perform_sets(config,
+								[(words[1], property_name, words[3])])
+						config.save_config(options.config)
+					elif command in config.list_users():
+						print(list_user_objects(config, [command])[0])
+					else:
+						config = perform_ignores(config, [link])
+						config.save_config(options.config)
 	except (KeyboardInterrupt, ConfigError):
 		common.notice("Exiting...")
