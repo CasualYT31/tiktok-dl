@@ -846,19 +846,28 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 					running_threads.append(DownloadStThread(set(link_list), folder,
 						file + str(i), retries=retries, user_config=user_config))
 			running_threads[-1].start()
+		number_of_digits = None
 		while True:
 			progress_reports = []
 			for thread in running_threads:
 				progress_reports.append(thread.progress)
 			for report in progress_reports:
-				current = f"{{:0{len(str(report[1]))}}}".format(report[0])
+				if number_of_digits is None:
+					# Due to the way the array_split function works, accessing the
+					# first thread's total link count and using that for the digit
+					# count will always make sure that the highest digit count is
+					# used, to ensure that every line is the same length regardless
+					# of each thread's individual total link count.
+					number_of_digits = len(str(report[1]))
+				current = f"{{:0{number_of_digits}}}".format(report[0])
+				total_str = f"{{:0{number_of_digits}}}".format(report[1])
 				if report[3] is True:
 					# Thread has completed, so skip its progress bar and leave it
 					# at 100%.
 					common.print_progress_bar(
 						iteration=100,
 						total=100,
-						prefix=f"\033[92m{current} of {report[1]}",
+						prefix=f"\033[92m{current} of {total_str}",
 						suffix=" \033[0m",
 						decimals=0,
 						printEnd='\r\n',
@@ -868,7 +877,7 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 					common.print_progress_bar(
 						iteration=report[0],
 						total=report[1],
-						prefix=f"\033[93m{current} of {report[1]}",
+						prefix=f"\033[93m{current} of {total_str}",
 						suffix=" \033[0m",
 						decimals=0,
 						printEnd='\r\n',
@@ -877,7 +886,7 @@ def download_mt(links: set[str], folder: os.path=".", threads: int=1,
 					common.print_progress_bar(
 						iteration=report[0],
 						total=report[1],
-						prefix=f"{current} of {report[1]}",
+						prefix=f"{current} of {total_str}",
 						decimals=0,
 						printEnd='\r\n',
 						stream=stream)
