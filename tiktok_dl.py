@@ -132,7 +132,7 @@ Command-Line Options
 	links fail due to a 404 HTTP error, they will be appended to the
 	given text file, one link per line.
 --retries count
-	The number of times to retry failed links. Defaults to 2 times.
+	The number of times to retry failed links. Defaults to 3 times.
 	Links that fail due to 404 errors do not count and are never
 	retried.
 --count-links-from-html
@@ -327,7 +327,7 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('-f', '--folder', default='.', metavar='OUTPUTFOLDER')
 	parser.add_argument('-e', '--error-links-history', default='./404.txt', \
 		metavar='FILEPATH')
-	parser.add_argument('-r', '--retries', type=retry_count, default=2, \
+	parser.add_argument('-r', '--retries', type=retry_count, default=3, \
 		metavar='RETRIES')
 	parser.add_argument('--count-links-from-html', action='store_true')
 	parser.add_argument('input', nargs='*', metavar='INPUT')
