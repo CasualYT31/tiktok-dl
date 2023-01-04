@@ -372,7 +372,7 @@ def link_is_valid(link: str) -> bool:
 
 	if not isinstance(link, str):
 		return False
-	expression = "https://www.tiktok.com/@[a-z\\d_.]+/video/\\d{19}"
+	expression = "https://www.tiktok.com/@[a-z\\d_.]+/video/\\d*"
 	if re.compile(expression).fullmatch(link):
 		return True
 	else:
