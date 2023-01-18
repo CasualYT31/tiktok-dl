@@ -503,12 +503,12 @@ def process_inputs(inputs: list[str], whitelist: set[str]=set(),
 	-------
 	tuple - set of str, set of str, set of str, dict:
 		All of the links that were scraped from the given inputs, and
-		then all of the usernames that were detected in `inputs`
-		directly (i.e. not in links, but in the list, or in non-HTML
-		files). Then, a set of all the files that were HTML scripts, and
-		finally, a dictionary, where each key is a HTML script path as
-		given in the parameters, and each value is the number of links
-		extracted from the corresponding HTML script.
+		then all of the usernames that were detected in `inputs` (both
+		directly in the list, as well as in links). Then, a set of all
+		the files that were HTML scripts, and finally, a dictionary,
+		where each key is a HTML script path as given in the parameters,
+		and each value is the number of links extracted from the
+		corresponding HTML script.
 	"""
 
 	ret = None
@@ -525,6 +525,9 @@ def process_inputs(inputs: list[str], whitelist: set[str]=set(),
 			for user in whitelist:
 				if common.extract_username_from_link(link) != user:
 					ret[0].remove(link)
+	# Now, update the user set with all the usernames found in the links allowed.
+	for link in ret[0]:
+		ret[1].add(common.extract_username_from_link(link))
 	return ret
 
 def update_history(filepath: str, new_users: set[str],
