@@ -64,6 +64,14 @@ Command-Line Options
 	must fully match with a username before it can be displayed. Only
 	the filter provided last will be used, if multiple `--list` options
 	are given.
+--find-in-comment [filter]
+	Lists all the users, after processing the other options, which have
+	a comment that matches the given filter. The optional filter is a
+	regular expression that must fully match with a user's comment
+	before the user's name can be displayed. Only the filter provided
+	last will be used, if multiple `--find-in-comment` options are
+	given. If the filter is not given, users with NO/A BLANK comment
+	will be displayed.
 --config filepath
 	Specifies the location of the configuration file to amend/query. If
 	more than one is given, then the last one given will be used. If one
@@ -84,6 +92,7 @@ Exports
 	* perform_ignores - Add or remove links to/from a config object.
 	* perform_deletes - Delete users from a config object.
 	* list_users_with_config_objects - Lists users with a config object.
+	* list_users_with_comment - Lists users with a matching comment.
 	* list_user_objects - Lists user config objects.
 """
 
@@ -124,6 +133,8 @@ def argument_parser() -> ArgumentParser:
 	parser.add_argument('-d', '--delete', action='append', \
 		metavar='USERNAME')
 	parser.add_argument('-l', '--list', nargs='?', const='.*', \
+		metavar='FILTER')
+	parser.add_argument('-f', '--find-in-comment', nargs='?', const='', \
 		metavar='FILTER')
 	parser.add_argument('-c', '--config', default='./config.json', \
 		metavar='CONFIGPATH')
@@ -336,6 +347,37 @@ def list_users_with_config_objects(config: UserConfig, filter_re: str=".*", \
 			f"filter: {filter_re}", stream)
 		return []
 
+def list_users_with_comment(config: UserConfig, filter_re: str="", \
+	stream: io.TextIOBase = sys.stdout) -> list[str]:
+	"""List users who have a comment that match `filter_re` in a given
+	config object.
+	
+	Parameters
+	----------
+	config - UserConfig
+		The configuration object to read from.
+	filter - list of str
+		The regular expression to filter the comments with. The comment
+		must fully match to be "found." Defaults to listing all of the
+		users who have no/a blank comment.
+	stream - io.TextIOBase
+		The stream to write messages to. Can be `None`. Defaults to
+		`sys.stdout`.
+	
+	Returns
+	-------
+	list of str
+		The names of users who have a comment that matches the
+		expression.
+	"""
+	
+	try:
+		return config.list_users_with_comment(filter_re)
+	except re.error:
+		common.notice("Invalid regular expression given for --find-in-comment's " \
+			f"filter: {filter_re}", stream)
+		return []
+
 def list_user_objects(config: UserConfig, users: list[str], \
 	stream: io.TextIOBase = sys.stdout) -> list[str]:
 	"""List the contents of user objects from a given config object.
@@ -382,6 +424,19 @@ def print_list_query(filter: str) -> list[str]:
 		print(columnify(username_list, os.get_terminal_size().columns))
 	return username_list
 
+def print_comment_query(filter: str) -> list[str]:
+	""""""
+
+	if filter is not None:
+		username_list = list_users_with_comment(config, filter)
+	else:
+		username_list = []
+	if len(username_list) > 0:
+		print("")
+		print(f"Users with comments that match the filter: {filter}")
+		print(columnify(username_list, os.get_terminal_size().columns))
+	return username_list
+
 if __name__ == "__main__":
 	try:
 		common.check_python_version()
@@ -402,6 +457,7 @@ if __name__ == "__main__":
 			
 			# Now process query stuff.
 			username_list = print_list_query(options.list)
+			username_list.extend(print_comment_query(options.find_in_comment))
 			config_objects_to_print = list_user_objects(config, options.user)
 			if len(config_objects_to_print) > 0:
 				print("")
@@ -426,6 +482,8 @@ if __name__ == "__main__":
 					elif (command == "help"):
 						print("l or list, with optional parameter filter: same as "
 							"the --list command line option.")
+						print("f or find, with optional parameter filter: same as "
+							"the --find-in-comment command line option.")
 						print("s or set, with username, property, and value "
 							"parameters: same as the --set command line option.")
 						print("exit: exits the program.")
@@ -437,6 +495,13 @@ if __name__ == "__main__":
 							print("")
 						else:
 							print_list_query(words[1])
+							print("")
+					elif (command == "f" or command == "find"):
+						if len(words) < 2:
+							print_comment_query("")
+							print("")
+						else:
+							print_comment_query(words[1])
 							print("")
 					elif (command == "s" or command == "set"):
 						if len(words) < 4:

@@ -876,9 +876,9 @@ class UserConfig:
 		Parameters
 		----------
 		filter : str
-			The regular expression which a username must fully match before
-			before included in the returning list. Defaults to listing all
-			users.
+			The regular expression which a username must fully match
+			before being included in the returned list. Defaults to
+			listing all users.
 		
 		Returns
 		-------
@@ -893,6 +893,38 @@ class UserConfig:
 
 		result = list(filter(re.compile(filter_re).fullmatch,
 			list(self.config.keys())))
+		result.sort()
+		return result
+
+	def list_users_with_comment(self, filter_re: str="") -> list[str]:
+		"""Lists the users configured in this object whose comment field
+		matches the given regular expression.
+		
+		Parameters
+		----------
+		filter : str
+			The regular expression which a user's comment must fully
+			match before the user's name can be included in the returned
+			list. Defaults to matching with users who have no/a blank
+			comment.
+		
+		Returns
+		-------
+		list[str]
+			An ascending sorted list of usernames.
+		
+		Raises
+		------
+		re.error
+			If the given regular expression was invalid.
+		"""
+
+		# Gotta be a way to do this with a list comprehension... CBA...
+		re_compiled = re.compile(filter_re)
+		result = []
+		for user, config in self.config.items():
+			if re_compiled.fullmatch(self.get_comment(user)):
+				result.append(user)
 		result.sort()
 		return result
 	
