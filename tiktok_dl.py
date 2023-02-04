@@ -154,14 +154,6 @@ methods to scrape from user pages, such as `html`—WHICH WILL BE THE
 DEFAULT WHILST YT-DLP DOESN'T WORK—and by providing complete HTML
 pages as described below.
 
-Update: it appears that the `yt-dlp` method is now working again as of
-the latest version of the code (2023.01.06). I suspect that TikTok
-changed the way they handled these requests _again_ and now no code
-change has to be made on the yt-dlp side, as the issue is still open and
-I don't believe the temporary solution found was ever used officially
-(it didn't work very well anyways, unfortunately). So this method for
-user scraping is now the default again.
-
 HTML Input
 ----------
 One method of downloading a user's videos using `tiktok-dl` is to
@@ -192,8 +184,7 @@ include original videos of duets, or when `yt-dlp` user page scraping
 
 Update: I'm now seemingly unable to download user pages in this way. Up
 to now I've had to deal with using a line of JavaScript written by
-someone else to achieve a similar result. Good thing the user page
-scraping is working again.
+someone else to achieve a similar result.
 
 Exports
 -------
@@ -235,7 +226,7 @@ import tiktok_common as common
 from tiktok_common import UserConfig, clean_up_link
 import tiktok_config as t
 
-DEFAULT_USER_METHOD = "ytdlp"
+DEFAULT_USER_METHOD = "html"
 
 class YtDlpLogger:
 	"""Logger used to divert `yt-dlp` output to a given stream."""
